@@ -1,80 +1,105 @@
-# Centroid Tracker Class
-from scipy.spatial import distance as dist
+import concurrent.futures
 from collections import OrderedDict
-
+from scipy.spatial import distance as dist
+from TrackedObjectClass import TrackedObject
 
 class CentroidTracker:
-    def __init__(self, maxDisappeared=50):
-        # Initialize the next object ID to be assigned
+    def __init__(self, maxDisappeared=50, maxHistory=5):
         self.nextObjectID = 0
-        # A dictionary to map object IDs to centroids
-        self.objects = OrderedDict()
-        # A dictionary to track how long an object has been missing
-        self.disappeared = OrderedDict()
-        # Max number of frames object can be missing before removal
+        self.objects = OrderedDict()  # Holds the TrackedObject instances
+        self.ObjectCentroids = OrderedDict()
         self.maxDisappeared = maxDisappeared
+        self.maxHistory = maxHistory
 
     def register(self, centroid):
-        # when registering an object we use the next available object
-        # ID to store the centroid
-        self.objects[self.nextObjectID] = centroid
-        self.disappeared[self.nextObjectID] = 0
+        # Create a new tracked object and assign it the next available object ID
+        obj = TrackedObject(self.nextObjectID, centroid, maxHistory=self.maxHistory)
+        self.objects[self.nextObjectID] = obj
+        self.ObjectCentroids[self.nextObjectID] = centroid
         self.nextObjectID += 1
 
     def deregister(self, objectID):
-        # Remove the object ID from tracking
+        # Remove the object from tracking
         del self.objects[objectID]
-        del self.disappeared[objectID]
+        del self.ObjectCentroids[objectID]
 
     def update(self, inputCentroids):
-        # If no centroids are detected, mark existing objects as missing
+        # If no centroids are detected, mark existing objects as disappeared
         if len(inputCentroids) == 0:
             for objectID in list(self.objects.keys()):
-                self.disappeared[objectID] += 1
-                if self.disappeared[objectID] > self.maxDisappeared:
-                    self.deregister(objectID)
-            return self.objects
+                obj = self.objects[objectID]
+                obj.mark_disappeared()
 
-        # If there are no existing objects, register new centroids
+                if obj.disappeared > self.maxDisappeared:
+                    self.deregister(objectID)
+
+            return self.get_all_objects()
+
+        # If no objects are currently tracked, register all centroids as new objects
         if len(self.objects) == 0:
-            for i in range(0, len(inputCentroids)):
-                self.register(inputCentroids[i])
+            for centroid in inputCentroids:
+                self.register(centroid)
 
         else:
-            # Calculate distances between new centroids and existing objects
+            # Grab the current object IDs and their corresponding centroids
             objectIDs = list(self.objects.keys())
-            objectCentroids = list(self.objects.values())
-            distances = dist.cdist(objectCentroids,inputCentroids)
+            objectCentroids = [obj.centroid for obj in self.objects.values()]
 
-            # Find minimum distance pairs (objects to centroids)
-             
+            # Compute the distance between each pair of object centroids and input centroids
+            distances = dist.cdist(objectCentroids, inputCentroids)
 
-            # Mark matched objects and update their centroids
+            # Find the smallest value in each row (min distances), and then sort rows by the min values
+            rows = distances.min(axis=1).argsort()
+            cols = distances.argmin(axis=1)[rows]
+
+            # Find the smallest value in each row (min distances), and then sort rows by the min values
+            rows = distances.min(axis=1).argsort()
+            cols = distances.argmin(axis=1)[rows]
+
             usedRows = set()
             usedCols = set()
 
-            for (row, col) in zip(rows, cols):
-                if row in usedRows or col in usedCols:
-                    continue
+            # Use ThreadPoolExecutor for parallel updating of objects
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = []
+                for (row, col) in zip(rows, cols):
+                    if row in usedRows or col in usedCols:
+                        continue
 
-                objectID = objectIDs[row]
-                self.objects[objectID] = inputCentroids[col]
-                self.disappeared[objectID] = 0
+                    objectID = objectIDs[row]
+                    obj = self.objects[objectID]
+                    futures.append(executor.submit(self.update_object, obj, inputCentroids[col]))
 
-                usedRows.add(row)
-                usedCols.add(col)
+                    usedRows.add(row)
+                    usedCols.add(col)
 
-            # Register new centroids that don't match existing objects
-            for col in range(0, len(inputCentroids)):
+                # Wait for all futures to complete
+                for future in futures:
+                    future.result()
+
+            # Register new input centroids as new objects
+            for col in range(len(inputCentroids)):
                 if col not in usedCols:
                     self.register(inputCentroids[col])
 
-            # Deregister objects that are no longer detected
-            for row in range(0, len(objectCentroids)):
+            # Mark remaining objects as disappeared
+            for row in range(len(objectCentroids)):
                 if row not in usedRows:
                     objectID = objectIDs[row]
-                    self.disappeared[objectID] += 1
-                    if self.disappeared[objectID] > self.maxDisappeared:
+                    obj = self.objects[objectID]
+                    obj.mark_disappeared()
+
+                    if obj.disappeared > self.maxDisappeared:
                         self.deregister(objectID)
 
-        return self.objects
+        return self.get_all_objects()
+
+    def update_object(self, obj, new_centroid):
+        # Update the object with its new centroid and movement
+        obj.update_centroid(new_centroid)
+        obj.reset_disappeared()  # Reset the disappearance count when the object is re-associated
+
+    def get_all_objects(self):
+        # Return current objects and their average centroids
+        objects = {objectID: obj.centroid for objectID, obj in self.objects.items()}
+        return objects
