@@ -5,7 +5,6 @@ from collections import defaultdict
 import hsvMaskUtility as hlpr
 from scipy.spatial import distance as dist
 from centroidClass import CentroidTracker
-from concurrent.futures import ThreadPoolExecutor
 
 
 
@@ -25,7 +24,7 @@ time_interval = 1 / fps
 ct = CentroidTracker()
 
 # Function to draw tracking information on the frame (parallelized version)
-def draw_tracking_info_parallel(frame, blank_image, cnts, centroid, objectID, objcVector, speed):
+def draw_tracking_info(frame, blank_image, cnts, centroid, objectID, objcVector, speed):
     for c in cnts:
         (x, y, w, h) = cv2.boundingRect(c)
         if (int(x + w / 2), int(y + h / 2)) == centroid:
@@ -56,28 +55,22 @@ def draw_tracking_info_parallel(frame, blank_image, cnts, centroid, objectID, ob
             
 # Function to process all tracked objects in parallel
 def process_tracked_objects(frame, blank_image, cnts, ct, time_interval):
-    # Use ThreadPoolExecutor for parallel processing of objects
-    with ThreadPoolExecutor() as executor:
-        futures = []
-        
-        # Create tasks for each object to draw tracking information
-        for objectID, obj in ct.objects.items():
-            centroid = obj.centroid
-            object_vector = obj.vector
-            displacement = obj.displacement
-            current_speed = 0
-            
-            if len(obj.centroid_history) > 1:            
-                current_speed = displacement / time_interval
-            else:
-                current_speed = 0
 
-            # Submit each task to the executor
-            futures.append(executor.submit(draw_tracking_info_parallel, frame, blank_image, cnts, centroid, objectID, object_vector, current_speed))
+    for objectID, obj in ct.objects.items():
+        centroid = obj.centroid
+        object_vector = obj.vector
+        displacement = obj.displacement
+        current_speed = 0
         
-        # Wait for all tasks to finish
-        for future in futures:
-            future.result()  # This will block until the task is done
+        if len(obj.centroid_history) > 1:            
+            current_speed = displacement / time_interval
+        else:
+            current_speed = 0
+
+        # Submit each task to the executor
+        draw_tracking_info(frame, blank_image, cnts, centroid, objectID, object_vector, current_speed)
+        
+
 
 # Main loop for video processing
 while True:

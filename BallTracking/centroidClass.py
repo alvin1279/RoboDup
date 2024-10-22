@@ -1,4 +1,3 @@
-import concurrent.futures
 from collections import OrderedDict
 from scipy.spatial import distance as dist
 from TrackedObjectClass import TrackedObject
@@ -60,22 +59,18 @@ class CentroidTracker:
             usedCols = set()
 
             # Use ThreadPoolExecutor for parallel updating of objects
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures = []
-                for (row, col) in zip(rows, cols):
-                    if row in usedRows or col in usedCols:
-                        continue
 
-                    objectID = objectIDs[row]
-                    obj = self.objects[objectID]
-                    futures.append(executor.submit(self.update_object, obj, inputCentroids[col]))
+            for (row, col) in zip(rows, cols):
+                if row in usedRows or col in usedCols:
+                    continue
 
-                    usedRows.add(row)
-                    usedCols.add(col)
+                objectID = objectIDs[row]
+                obj = self.objects[objectID]
+                self.update_object(obj, inputCentroids[col])
 
-                # Wait for all futures to complete
-                for future in futures:
-                    future.result()
+                usedRows.add(row)
+                usedCols.add(col)
+
 
             # Register new input centroids as new objects
             for col in range(len(inputCentroids)):
