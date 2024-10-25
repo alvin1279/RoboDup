@@ -14,6 +14,10 @@ with open('goal_post_points.json', 'r') as f:
     left_goal_post = goal_post_data["left_goal_post"]
     right_goal_post = goal_post_data["right_goal_post"]
 
+# Save all the points and zoom in a new json file
+data = {"rect_points": rect_points, "left_goal_post": left_goal_post, "right_goal_post": right_goal_post, "zoom": zoom}
+with open('field_boundary.json', 'w') as f:
+    json.dump(data, f)
 
 img = cv2.imread('Samples/platform1.png')
 
