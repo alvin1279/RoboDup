@@ -20,72 +20,57 @@ WebSocketsServer webSocket = WebSocketsServer(81);
 const char* ssid = "#r";
 const char* password = "qwju8977";
 
+int commandCountGlobal = 0;
+String commands[10]; // Array to hold command actions
+int commandLength[10]; // Array to hold command lengths
+int index = 0;
+
 // Function to handle WebSocket messages
 void handleWebSocketMessage(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-  String message = (char*)payload;
-  Serial.println("Received message: " + message);
+    String message = (char*)payload;
+    Serial.println("Received message: " + message);
 
-  // Split the entire path pattern by commas (",")
-  String commands[10]; // Adjust array size based on maximum expected commands
-  int commandCount = 0;
-  
-  while (message.length() > 0) {
-    int index = message.indexOf(',');
-    if (index == -1) {
-      commands[commandCount++] = message;
-      break;
-    } else {
-      commands[commandCount++] = message.substring(0, index);
-      message = message.substring(index + 1);
+    // Reset command count and index for new messages
+    int commandCount = 0;
+    if (message != "stop") {
+        for (int i = 0; i < message.length(); i += 3) {
+            commands[commandCount] = String(message[i]); // Store the command action
+            commandLength[commandCount] = message.substring(i + 1, i + 3).toInt(); // Convert the 2-digit length to integer
+            commandCount++;
+        }
+        commandCountGlobal = commandCount;
+        index = 0;
     }
-  }
 
-  // Execute each command sequentially
-  for (int i = 0; i < commandCount; i++) {
-    String command = commands[i];
-    command.trim();
-    
-    int spaceIndex = command.indexOf(' ');
-    if (spaceIndex != -1) {
-      String direction = command.substring(0, spaceIndex);
-      int duration = command.substring(spaceIndex + 1).toInt();
+    // Execute each command sequentially
+    if (index < commandCountGlobal) {
+        String direction = commands[index];
+        int &length = commandLength[index]; // Use reference to directly modify length
 
-      if (direction == "forward") {
-        forward();
-        Serial.println("..................forward...............");
-      } else if (direction == "fast_forward") {
-        fastForward();
-        Serial.println("..................fast forward..........");
-      } else if (direction == "backward") {
-        backward();
-        Serial.println("..................backward..............");
-      } else if (direction == "fast_backward") {
-        fastBackward();
-        Serial.println("..................fast backward.........");
-      } else if (direction == "left") {
-        left();
-        Serial.println("..................left..................");
-      } else if (direction == "right") {
-        right();
-        Serial.println("..................right.................");
-      } else if (direction == "fast_left") {
-        fastLeft();
-        Serial.println("..................Fast left.............");
-      } else if (direction == "fast_right") {
-        fastRight();
-        Serial.println("..................Fast right............");
-      } else if (direction == "stop") {
-        stopMotors();
-        Serial.println("..................stop..................");
-      }
-
-      delay(duration); // Run the command for the given duration
-      Serial.print("......................");
-      Serial.print(duration);
-      Serial.println("......................");
-      stopMotors(); // Stop the motors after the duration
+        if (length > 0) {
+            if (direction == "f") {
+                forward();
+                Serial.println("..................forward...............");
+            } else if (direction == "b") {
+                backward();
+                Serial.println("..................backward..............");
+            } else if (direction == "l") {
+                left();
+                Serial.println("..................left..................");
+            } else if (direction == "r") {
+                right();
+                Serial.println("..................right.................");
+            } else if (direction == "s") {
+                stopMotors();
+                Serial.println("..................stop..................");
+            }
+            length--; // Decrement the remaining length for this command
+        } else {
+            index++; // Move to the next command when current length reaches zero
+        }
+    }else{
+      stopMotors();
     }
-  }
 }
 
 // Motor control functions (same as before)

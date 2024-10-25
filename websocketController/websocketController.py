@@ -24,9 +24,13 @@ def main():
 
     while True:
         # Get user input for the command sequence
-        user_input = input("Enter the command: ")
-
+        # senc command as pair of direction and length(2digits) of direction
+        # eg: 'f02r01'
+        # user_input = input("Enter the command: /n")
+        
         # Send the command to the bot
+        user_input = 'f02r01'
+        user_input+= 's00'
         send_command(user_input)
 
         # Wait for 2 seconds before accepting the next input
