@@ -3,3 +3,4 @@ opencv-python
 numpy
 pillow
 scipy
+websocket-client
