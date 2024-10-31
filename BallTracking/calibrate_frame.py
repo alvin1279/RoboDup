@@ -239,8 +239,8 @@ if cnts:  # Check if contours exist
     # save to json
     user_input = input("Save this Data points to file? (yes/no): ").strip().lower()
     if user_input == "yes":
-        os.makedirs('JsonData', exist_ok=True)
-        with open('JsonData/final_warped.json', 'w') as f:
+        os.makedirs('Datas', exist_ok=True)
+        with open('Datas/final_warped.json', 'w') as f:
             json.dump(data, f)
         # Display the transformed goal post points
     print("Transformed Left Goal Post Points:", transformed_left_goal_post)
