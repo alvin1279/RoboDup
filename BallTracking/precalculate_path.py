@@ -4,6 +4,7 @@ import time
 import h5py
 import os
 from concurrent.futures import ProcessPoolExecutor
+import json
 
 # Define colors
 red = (0, 0, 255)
@@ -123,16 +124,52 @@ def draw_line(img, line_equations, goal_line_points):
             cv2.line(img, point, end_point, color, 1)
 
 if __name__ == '__main__':
-    img = np.zeros((500, 500, 3), np.uint8)
+    # Load JSON data from JsonData/final_warped
+    json_filename = 'JsonData/final_warped.json'
+    shape = (500, 500, 3)
     left_goal_start = (0, 200)
     left_goal_end = (0, 300)
+    right_goal_start = (499, 200)
+    right_goal_end = (499, 300)
+    x_offset = 30
+    try:
+        with open(json_filename, 'r') as json_file:
+            json_data = json.load(json_file)
+            shape = tuple(map(int, json_data['shape']))
+            right_goal_points = json_data['transformed_right_goal_post']
+            left_goal_points = json_data['transformed_left_goal_post']
+            left_goal_start = tuple(map(int, left_goal_points[0]))
+            left_goal_end = tuple(map(int, left_goal_points[1]))
+            right_goal_start = tuple(map(int, right_goal_points[0]))
+            right_goal_end = tuple(map(int, right_goal_points[1]))
+            print("JSON data loaded successfully.")
+    except FileNotFoundError:
+        print(f"File {json_filename} not found.")
+    except json.JSONDecodeError:
+        print(f"Error decoding JSON from file {json_filename}.")
 
-    goal_line_points = generate_goal_line_points(left_goal_start, left_goal_end)
+    goal_post_choice = input("Choose goal post (left/right): ").strip().lower()
+    if goal_post_choice == 'left':
+        goal_start = left_goal_start
+        goal_end = left_goal_end
+    elif goal_post_choice == 'right':
+        goal_start = right_goal_start
+        goal_end = right_goal_end
+        x_offset = shape[0] - x_offset
+    else:
+        print("Invalid choice. Defaulting to left goal post.")
+        goal_start = left_goal_start
+        goal_end = left_goal_end
+
+
+
+    img = np.zeros(shape, np.uint8)
+
+    goal_line_points = generate_goal_line_points(goal_start, goal_end)
     save_points_hdf5(goal_line_points, 'goal_line_points.h5')
     print("Goal line points saved in HDF5 format.")
 
     img_height, img_width, _ = img.shape
-    x_offset = 30
     num_processes = 6
     os.makedirs('paths', exist_ok=True)  # Ensure directory exists
     user_input = input("Data from previous computations may exists. Do you wish to compute anyway? (yes/no): ").strip().lower()
