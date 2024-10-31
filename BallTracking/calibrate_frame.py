@@ -93,7 +93,7 @@ def draw_lines_rectangle(img, points):
 # Open the video file
 video_path = 'Samples/field_1.mp4'  # Change to your video file path
 cap = cv2.VideoCapture(video_path)
-file_path='resized_rotated_frame.png'
+file_path='Samples/resized_rotated_frame.png'
 redux = 2
 # Check if the video opened successfully
 if not cap.isOpened():
@@ -102,10 +102,7 @@ else:
     # Read a single frame
     ret, frame = cap.read()  # ret is a boolean indicating success
     if ret:
-        # Save the captured frame as a variable
         captured_frame = frame
-
-        # Display the captured frame
         cv2.imshow('Captured Frame', captured_frame)
 
         rotated_frame = cv2.rotate(captured_frame, cv2.ROTATE_90_CLOCKWISE)
@@ -115,16 +112,9 @@ else:
 
         # Show the rotated and resized frame
         cv2.imshow('Rotated and Resized Frame', resized_frame)
-
-        # Optionally, you can save the resized frame as an image file
-        cv2.imwrite(file_path, resized_frame)
-
-        # Process the frame (example: convert to grayscale)
-        gray_frame = cv2.cvtColor(captured_frame, cv2.COLOR_BGR2GRAY)
-
-        # Show the processed frame
-        cv2.imshow('Processed Frame', gray_frame)
         cv2.waitKey(0)  # Wait until a key is pressed
+
+        cv2.imwrite(file_path, resized_frame)
     else:
         print("Error: Could not read frame from video.")
 
@@ -237,11 +227,17 @@ if cnts:  # Check if contours exist
     transformed_right_goal_post = cv2.perspectiveTransform(np.array(right_goal_post, dtype=np.float32)[None, :, :], M)[0]
     # Save the updated points as goal post points left and right
     # turn points to int
-    data = {"transformed_left_goal_post": transformed_left_goal_post, "transformed_right_goal_post": transformed_right_goal_post,"redux": redux}
-    data["warp_matrix"] = M.tolist()
-    data["shape"] = warped.shape
+    data = {
+        "transformed_left_goal_post": transformed_left_goal_post.tolist(),
+        "transformed_right_goal_post": transformed_right_goal_post.tolist(),
+        "redux": redux,
+        "warp_matrix": M.tolist(),
+        "shape": warped.shape
+    }
+
+    print(data)
     # save to json
-    user_input = input("Save Data thisto file? (yes/no): ").strip().lower()
+    user_input = input("Save this Data points to file? (yes/no): ").strip().lower()
     if user_input == "yes":
         os.makedirs('JsonData', exist_ok=True)
         with open('JsonData/final_warped.json', 'w') as f:
