@@ -2,8 +2,7 @@ import json
 import cv2
 import numpy as np
 import imutils
-import tkinter as tk
-from tkinter import messagebox
+import os
 
 # Global variables to store mouse coordinates and points
 mouseX, mouseY = 0, 0
@@ -90,21 +89,6 @@ def draw_lines_rectangle(img, points):
     for i in range(4):
         cv2.line(img, points[i], points[(i + 1) % 4], colors[i // 2], 2)
 
-# Load image and set parameters
-
-
-# Open the video file
-def rotate_frame(frame, angle):
-    """Rotate the image by the specified angle."""
-    # Get the dimensions of the frame
-    (h, w) = frame.shape[:2]
-    # Calculate the center of the frame
-    center = (w // 2, h // 2)
-    # Get the rotation matrix
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)  # 1.0 is the scale factor
-    # Perform the rotation
-    rotated_frame = cv2.warpAffine(frame, M, (w, h))
-    return rotated_frame
 
 # Open the video file
 video_path = 'Samples/field_1.mp4'  # Change to your video file path
@@ -124,8 +108,6 @@ else:
         # Display the captured frame
         cv2.imshow('Captured Frame', captured_frame)
 
-        # Rotate the frame by a specified angle (e.g., 45 degrees)
-        # rotated_frame = rotate_frame(captured_frame, 90)
         rotated_frame = cv2.rotate(captured_frame, cv2.ROTATE_90_CLOCKWISE)
         # Resize the rotated frame (e.g., to half the original size)
         height, width = rotated_frame.shape[:2]
@@ -216,25 +198,6 @@ if cnts:  # Check if contours exist
     left_goal_post = [[int(x) for x in point] for point in updated_goal_line_points[:2]]
     right_goal_post = [[int(x) for x in point] for point in updated_goal_line_points[2:]]
 
-    # Prepare all data to save
-    final_output_data = {
-        "field": {
-            "rect_points": [[int(x) for x in point] for point in updated_rect_points],
-        },
-        "goal": {
-            "left_goal_post": [[int(x) for x in point] for point in updated_goal_line_points[:2]],
-            "right_goal_post": [[int(x) for x in point] for point in updated_goal_line_points[2:]],
-        },
-    }
-
-    # Save everything to JSON
-    root = tk.Tk()
-    root.withdraw()  # Hide main window
-    if messagebox.askyesno("Save Changes", "Save the updated coordinates?"):
-        with open('final_data.json', 'w') as f:
-            json.dump(final_output_data, f)
-        print("All coordinates saved in final_data.json.")
-    
     for i in range(4):
         cv2.line(img, tuple(rect_points[i]), tuple(rect_points[(i + 1) % 4]), (0, 255, 0), 2)
 
@@ -245,7 +208,7 @@ if cnts:  # Check if contours exist
     cv2.waitKey(0)
 
     cv2.destroyAllWindows()
-    # Descales the original image
+
     img = cv2.imread(file_path)
 
     # Define the source points (the four corner points of your region)
@@ -274,15 +237,16 @@ if cnts:  # Check if contours exist
     transformed_right_goal_post = cv2.perspectiveTransform(np.array(right_goal_post, dtype=np.float32)[None, :, :], M)[0]
     # Save the updated points as goal post points left and right
     # turn points to int
-    left_goal_post = [[int(x) for x in point] for point in left_goal_post]
-    right_goal_post = [[int(x) for x in point] for point in right_goal_post]
-    data = {"left_goal_post": left_goal_post, "right_goal_post": right_goal_post, "zoom": redux}
+    data = {"transformed_left_goal_post": transformed_left_goal_post, "transformed_right_goal_post": transformed_right_goal_post,"redux": redux}
     data["warp_matrix"] = M.tolist()
     data["shape"] = warped.shape
     # save to json
-    with open('final_warped.json', 'w') as f:
-        json.dump(data, f)
-    # Display the transformed goal post points
+    user_input = input("Save Data thisto file? (yes/no): ").strip().lower()
+    if user_input == "yes":
+        os.makedirs('JsonData', exist_ok=True)
+        with open('JsonData/final_warped.json', 'w') as f:
+            json.dump(data, f)
+        # Display the transformed goal post points
     print("Transformed Left Goal Post Points:", transformed_left_goal_post)
     print("Transformed Right Goal Post Points:", transformed_right_goal_post)
 
@@ -297,3 +261,4 @@ if cnts:  # Check if contours exist
     cv2.destroyAllWindows()
 else:
     print("No contours found in the image.")
+
