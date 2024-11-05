@@ -1,0 +1,108 @@
+import cv2
+import numpy as np
+import imutils
+import hsvMaskUtility as hlpr
+
+def findHeadAndTail(img):
+    # bot is segmented to tail and head
+    lower_tail = (139,227,131)
+    upper_tail = (145,233,147)
+    # lower,upper = hlpr.getMaskBoundary(img)
+    # print(f"Lower: {lower}, Upper: {upper}")
+    # lower_tail = np.array(lower)
+    # upper_tail = np.array(upper)
+
+    lower_head = (171,255,127)
+    upper_head = (176,255,139)
+    # lower,upper = hlpr.getMaskBoundary(img)
+    # print(f"Lower: {lower}, Upper: {upper}")
+    # lower_head = np.array(lower)
+    # upper_head = np.array(upper)
+
+    HsvImg = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    tail_mask = cv2.inRange(HsvImg, lower_tail, upper_tail)
+    head_mask = cv2.inRange(HsvImg, lower_head, upper_head)
+
+    cv2.imshow('Tail Mask', tail_mask)
+    if cv2.waitKey(0) & 0xFF == ord('q'):
+        cv2.destroyAllWindows()
+    cv2.imshow('Head Mask', head_mask)
+    if cv2.waitKey(0) & 0xFF == ord('q'):
+        cv2.destroyAllWindows()
+    contours_tail, _ = cv2.findContours(tail_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours_head, _ = cv2.findContours(head_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    # find largest contour in tail
+    max_area = 0
+    max_area_index = 0
+    for i, c in enumerate(contours_tail):
+        area = cv2.contourArea(c)
+        if area > max_area:
+            max_area = area
+            max_area_index = i
+    # Calculate centroid of tail
+    M = cv2.moments(contours_tail[max_area_index])
+    if M["m00"] != 0:
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+    else:
+        cX, cY = 0, 0
+    tail_centroid = (cX, cY)
+
+    # find largest contour in head
+    max_area = 0
+    max_area_index = 0
+    for i, c in enumerate(contours_head):
+        area = cv2.contourArea(c)
+        if area > max_area:
+            max_area = area
+            max_area_index = i
+    # Calculate centroid of head
+    M = cv2.moments(contours_head[max_area_index])
+    if M["m00"] != 0:
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+    else:
+        cX, cY = 0, 0
+    head_centroid = (cX, cY)
+
+    return tail_centroid, head_centroid
+
+def findOrientation(tail_centroid, head_centroid):
+    # Calculate orientation of the pattern using the centroid
+    # Get the centroid of the largest area contour
+    cX, cY = tail_centroid
+    # get average angle from all other centroids to the centroid of the largest area contour
+    angles = []
+    x, y = head_centroid
+    angle = np.arctan2(cY - y, cX - x) * 180 / np.pi
+    angles.append(angle)
+    avg_angle = np.mean(angles)
+    # convert angle to 0-360
+    if avg_angle < 0:
+        avg_angle += 360
+    return avg_angle
+
+def drawOrientation(img, tail_centroid, head_centroid):
+    cv2.arrowedLine(img, tail_centroid, head_centroid, (0, 255, 0), 2, tipLength=0.2)
+
+def getBotData(img):
+    tail_centroid, head_centroid = findHeadAndTail(img)
+    orientation = findOrientation(tail_centroid, head_centroid)
+    return tail_centroid, head_centroid, orientation
+
+def main():
+    img = cv2.imread('Samples/bot.png')
+    img = imutils.resize(img, width=600)
+    tail_centroid, head_centroid, orientation = getBotData(img)
+    drawOrientation(img, tail_centroid, head_centroid)
+    cv2.circle(img, tail_centroid, 5, (0, 0, 255), -1)
+    cv2.circle(img, head_centroid, 5, (255, 0, 0), -1)
+    print(f"orientation: {orientation}")
+    cv2.imshow('Bot Orientation', img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
