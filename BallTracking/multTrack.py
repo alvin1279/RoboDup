@@ -4,27 +4,25 @@ import imutils
 from collections import defaultdict
 import hsvMaskUtility as hlpr
 from scipy.spatial import distance as dist
+
 from centroidClass import CentroidTracker
 import path_finder as pf
+import BallSelector as Selector
+import DetectBot
+import BotMover
 
-
-# HSV range for mask
-lower = (26, 42, 167)
-upper = (179, 255, 255)
-
-# temperory start and end points
-start = (100, 100)  # Example start point, adjust as per your image
-end = (500, 400) 
-vs = cv2.VideoCapture('Samples/vid1.mp4')
-if not vs.isOpened():
-    raise IOError("Cannot open video file")
-
-fps = vs.get(cv2.CAP_PROP_FPS)
-time_interval = 1 / fps
-path_image = np.zeros((500, 900, 3), np.uint8)
-delay_between_frames = 50
-# Initialize centroid tracker
-ct = CentroidTracker()
+def load_frame_data():
+    with open('Datas/final_warped.json', 'r') as json_file:
+        json_data = json.load(json_file)
+        shape = tuple(map(int, json_data['shape']))
+        right_goal_points = json_data['transformed_right_goal_post']
+        left_goal_points = json_data['transformed_left_goal_post']
+        left_goal_start = tuple(map(int, left_goal_points[0]))
+        left_goal_end = tuple(map(int, left_goal_points[1]))
+        right_goal_start = tuple(map(int, right_goal_points[0]))
+        right_goal_end = tuple(map(int, right_goal_points[1]))
+        print("JSON data loaded successfully.")
+    return shape, left_goal_start, left_goal_end, right_goal_start, right_goal_end
 
 # Function to draw tracking information on the frame (parallelized version)
 def draw_tracking_info(frame, blank_image, cnts, centroid, objectID, objcVector, speed):
@@ -97,12 +95,59 @@ def draw_path(bitwise_not, blank_image, path_points, start, end):
     cv2.line(bitwise_not, start_point, end_point, grey_color, 2)
     cv2.line(blank_image, start_point, end_point, red, 2)
 
-# Main loop for video processing
+
+
+# temperory start and end points
+start = (100, 100)  # Example start point, adjust as per your image
+end = (300, 300) 
+
+# initialising flags
+selected_flag = False
+selectedBall = None
+bot_detected = False
+goal_location = "left"
+# ask for goal post choice
+goal_post_choice = input("Choose goal post (left/right): ").strip().lower()
+if goal_post_choice == 'left':
+    goal_location = "left"
+elif goal_post_choice == 'right':
+    goal_location = "right"
+else:
+    print("Invalid choice. Defaulting to left goal post.")
+    goal_location = "left"
+
+# load frame data
+shape, left_goal_start, left_goal_end, right_goal_start, right_goal_end = load_frame_data()
+# construct a smaller rectangle inside shape to avoid boundary errors and corners
+x_offset = 30
+y_offset = 30
+x_boundaries = shape[0] + x_offset, shape[0] - x_offset
+y_boundaries = shape[1] + y_offset, shape[1] - y_offset
+
+
+# Load video file / camera
+vs = cv2.VideoCapture('Samples/vid1.mp4')
+if not vs.isOpened():
+    raise IOError("Cannot open video file")
+
+fps = vs.get(cv2.CAP_PROP_FPS)
+time_interval = 1 / fps
+delay_between_frames = 50
+
+# Initialize centroid tracker
+ct = CentroidTracker()
+# Initialise BotMover
+bt = BotMover.BotMover(shape)
+selected_ball,CornerObjs = None, None
+# HSV range for ball mask
+lower = (26, 42, 167)
+upper = (179, 255, 255)
+# blank image for path and objects to be drawn
+path_image = np.zeros((500, 900, 3), np.uint8)
 while True:
     ret, frame = vs.read()
     if not ret:
         break
-
     # Preprocess the frame
     frame = imutils.resize(frame, width=900)
     hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -131,7 +176,30 @@ while True:
     objects = ct.update(inputCentroids)
     process_tracked_objects(frame,blank_image,cnts,ct,time_interval)
 
-
+    # find the bot
+    bot_data = DetectBot.getBotData(frame)
+    if bot_data[0] == None or bot_data[1] == None or bot_data[2] == None or bot_data[3] == None:
+        bot_detected = False
+        bt.updateBotData(None)
+    else:
+        tail_centroid,head_centroid,_ = bot_data
+        bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
+        bot_detected = True
+        start = bot_center
+    if not selected_flag and bot_detected:
+        # Select a ball
+        selected_ball,CornerObjs = Selector.selectBall(objects,x_boundaries,y_boundaries,bot_center)
+        end = selected_ball.centroid
+    else:
+        # set selected_flag to false if selected_ball is not in objects
+        for obj in objects.values():
+            if obj == selected_ball:
+                break
+            else:
+                selected_flag = False
+    if selected_flag and bot_detected:
+        # move the bot
+        bt.moveBot(selected_ball, objects)
     # get path points to target object
     path_points = pf.get_paths(cnts, start, end)
     draw_path(bitwise_not, blank_image, path_points,start, end)

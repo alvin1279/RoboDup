@@ -33,6 +33,10 @@ def findHeadAndTail(img):
     contours_tail, _ = cv2.findContours(tail_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     contours_head, _ = cv2.findContours(head_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
+    # Check if any contours were found for tail
+    if not contours_tail:
+        raise ValueError("No contours found for tail")
+
     # find largest contour in tail
     max_area = 0
     max_area_index = 0
@@ -49,6 +53,10 @@ def findHeadAndTail(img):
     else:
         cX, cY = 0, 0
     tail_centroid = (cX, cY)
+
+    # Check if any contours were found for head
+    if not contours_head:
+        raise ValueError("No contours found for head")
 
     # find largest contour in head
     max_area = 0
@@ -88,15 +96,30 @@ def drawOrientation(img, tail_centroid, head_centroid):
     cv2.arrowedLine(img, tail_centroid, head_centroid, (0, 255, 0), 2, tipLength=0.2)
 
 def getBotData(img):
-    tail_centroid, head_centroid = findHeadAndTail(img)
-    orientation = findOrientation(tail_centroid, head_centroid)
+    try:
+        tail_centroid, head_centroid = findHeadAndTail(img)
+    except ValueError as e:
+        print(f"Error in finding head or tail: {e}")
+        return None, None, None
+
+    try:
+        orientation = findOrientation(tail_centroid, head_centroid)
+    except Exception as e:
+        print(f"Error in finding orientation: {e}")
+        return tail_centroid, head_centroid, None
+
     return tail_centroid, head_centroid, orientation
 
 def main():
     img = cv2.imread('Samples/bot.png')
     img = imutils.resize(img, width=600)
     tail_centroid, head_centroid, orientation = getBotData(img)
+    if tail_centroid is None or head_centroid is None:
+        print("Error: Could not find tail or head centroids.")
+        return
+    center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
     drawOrientation(img, tail_centroid, head_centroid)
+    cv2.circle(img, center, 5, (0, 255, 0), -1)
     cv2.circle(img, tail_centroid, 5, (0, 0, 255), -1)
     cv2.circle(img, head_centroid, 5, (255, 0, 0), -1)
     print(f"orientation: {orientation}")
