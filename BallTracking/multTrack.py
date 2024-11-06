@@ -134,14 +134,14 @@ else:
 # load frame data
 shape, left_goal_start, left_goal_end, right_goal_start, right_goal_end,warp_matrix = load_frame_data()
 # construct a smaller rectangle inside shape to avoid boundary errors and corners
-x_offset = 30
-y_offset = 30
+x_offset = 5
+y_offset = 5
 x_boundaries = shape[0] + x_offset, shape[0] - x_offset
 y_boundaries = shape[1] + y_offset, shape[1] - y_offset
 
 
 # Load video file / camera
-vs = cv2.VideoCapture('http://192.168.149.102:8080/video')
+vs = cv2.VideoCapture('http://192.168.83.138:8080/video')
 if not vs.isOpened():
     raise IOError("Cannot open video file")
 
@@ -163,15 +163,17 @@ upper = (50, 255, 255)
 
 # blank image for path and objects to be drawn
 path_image = np.zeros((500, 900, 3), np.uint8)
+start_time = time.time()
+
 while True:
-    intiate_movement = False
-    if not time_started_flag:
-        start_time = time.time()
-        time_started_flag = True
-    end_time = time.time()
-    if end_time - start_time > 3:
-        time_started_flag = False
-        intiate_movement = True
+    # intiate_movement = False
+    # if not time_started_flag:
+    #     start_time = time.time()
+    #     time_started_flag = True
+    # if time.time() - start_time > 3:
+    #     print('endtiming')
+    #     time_started_flag = False
+    #     intiate_movement = True
     ret, frame = vs.read()
     # frame = cv2.warpPerspective(img, M, (width, height))
 # left
@@ -188,7 +190,7 @@ while True:
 
     # Get mask for object detection
     mask = hlpr.GetMask(hsvImage, lower, upper, 3)
-    # bitwise_not = cv2.bitwise_not(mask)
+    bitwise_not = cv2.bitwise_not(mask)
 
     # Find contours
     contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -229,6 +231,7 @@ while True:
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
         selected_ball,CornerObjs = Selector.selectBall(objects,x_boundaries,y_boundaries,bot_center)
         # print(selected_ball)
+        # print(selected_ball)
         if selected_ball is not None:
             already_selected_flag = True
             ball_selected_flag = True
@@ -240,15 +243,16 @@ while True:
                 break
             else:
                 already_selected_flag = False
-    if ball_selected_flag and bot_detected and selected_ball and intiate_movement:
+    if ball_selected_flag and bot_detected and selected_ball:
         # move the bot
+        print('initiating movement')
         bt.move_bot(selected_ball.centroid, objects.values())
         near_target = bt.near_target
     # if ball_selected_flag and bot_detected and near_target:
     #     bt.near_target_motions(objects[selected_ball],bot)
     # get path points to target object
     path_points = pf.get_paths(cnts, start, end)
-    print(start,end)
+    # print(start,end)
     draw_path(bitwise_not, frame, path_points,start, end)
 
     cv2.imshow('mask',mask)

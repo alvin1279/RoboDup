@@ -71,6 +71,7 @@ class BotMover:
         if distance > 90:
             self.near_target = False
             intersection_points = self.check_interSection(selected_centroid, all_ball_objects)
+            intersection_points = None
             if intersection_points is None:
                 self.generate_movement_comand(selected_centroid, distance)
                 self.intersection = False
@@ -83,13 +84,13 @@ class BotMover:
         if self.bot_data is None:
             raise ValueError("Bot data is not updated")
         # check if the selected object is in the path of the bot
-        line_equation = pf.get_line_equation(self.bot_center, selected_centroid)
+        m,c = pf.line_equation(self.bot_center, selected_centroid)
         intersection_points = None
         for obj in all_ball_objects:
             if obj.centroid == selected_centroid:
                 continue
             else:
-                intersection_points = pf.line_circle_intersection(line_equation, selected_centroid)
+                intersection_points = pf.line_circle_intersection(m,c, selected_centroid,7)
                 break
         return intersection_points
 
@@ -111,11 +112,11 @@ class BotMover:
         tail_centroid, head_centroid, angle = self.bot_data
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
         bot_ball_angle = np.arctan2(selected_centroid[1] - bot_center[1], selected_centroid[0] - bot_center[0]) * 180 / np.pi
-        bot_angle = self.orientation
+        bot_angle = self.angle
         print('Bot angle:', angle)
         # angle = self.normalize_angle(angle)
         # adjust angle until almost till zero
-        if bot_angle > 90 or bot_angle < 270:
+        if angle > 90 and angle < 270:
             # do left if bot is in top half to avoid hitting the wall
             if self.bot_hemisphere == 'top':
                 direction = 'r'
@@ -137,7 +138,7 @@ class BotMover:
             direction = 'l'
         elif 270 < angle < 355:
             direction = 'r'
-        rotation_scale_hex = self.decaToHex(self.rotation_scale)
+        rotation_scale_hex = self.decaToHex(self.previous_rotation_scale)
         if len(rotation_scale_hex) == 1:
             rotation_scale_hex = '0' + rotation_scale_hex
         return direction + rotation_scale_hex
@@ -150,10 +151,10 @@ class BotMover:
                               self.bot_center[1] + 10 * self.previous_distance_scale * np.sin(np.radians(predicted_angle)))
         
         self.predicted_angle = predicted_angle
-        self.predicted_distance = predicted_distance
+        self.predicted_position = predicted_position
         # self.history.append((predicted_angle, predicted_distance, rotation_scale, distance_scale))
 
-    def adjust_distance_scales_with_pid(self,scale):
+    def adjust_distance_scales_with_pid(self,error):
         # PID controller logic
         self.integral += error
         derivative = error - self.previous_distance_error
@@ -166,7 +167,7 @@ class BotMover:
     def adjust_angle_scales_with_pid(self, error):
         # PID controller logic
         self.integral += error
-        derivative = error - self.previous_error
+        derivative = error - self.previous_angle_error
         output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
         self.previous_angle_error = error
 
@@ -174,7 +175,7 @@ class BotMover:
         self.previous_rotation_scale = max(1, min(10, self.previous_rotation_scale + output))
     def get_behing_ball(self, selected_centroid,all_ball_objects):
         # get the position behind the ball
-        if self.hemisphere == 'top':
+        if self.bot_hemisphere == 'top':
             new_centroid = (selected_centroid[0], selected_centroid[1] - 10)
         else:
             new_centroid = (selected_centroid[0], selected_centroid[1] + 10)
@@ -190,9 +191,11 @@ class BotMover:
 
     @staticmethod
     def decaToHex(dec):
-        return hex(dec).split('x')[-1]
+        clamped_value = max(0,min(255,int(dec)))
+        return hex(clamped_value).split('x')[-1].zfill(2)
 
     @staticmethod
     def hexToDec(hex):
         return int(hex, 16)
+
 

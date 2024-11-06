@@ -8,15 +8,23 @@ def findHeadAndTail(img):
     # jasira hsv values
     # lower_tail = (110,136,193)
     # upper_tail = (129,184,255)
-    lower_tail = (110,136,193)
-    upper_tail = (129,184,255)
+    # hashr hsv values
+    # lower_tail = (112, 127, 155)
+    # upper_tail = (129, 237, 255)
+    lower_tail = (112,127,155)
+    upper_tail = (129,237,255)
     # lower,upper = hlpr.getMaskBoundary(img)
     # print(f"Lower: {lower}, Upper: {upper}")
     # lower_tail = np.array(lower)
     # upper_tail = np.array(upper)
-
-    lower_head = (159,139,226)
-    upper_head = (179,215,255)
+    # jasira hsv value
+    # lower_head = (159, 139, 226)
+    # upper_head = (179, 215, 255)
+    # hashr hsv values
+    # lower_head = (132,129,167)
+    # upper_head = (179,200,255)\
+    lower_head = (132,129,167)
+    upper_head = (179,200,255)
     # lower,upper = hlpr.getMaskBoundary(img)
     # print(f"Lower: {lower}, Upper: {upper}")
     # lower_head = np.array(lower)
@@ -30,10 +38,10 @@ def findHeadAndTail(img):
     tail_mask = cv2.dilate(tail_mask, None, iterations=4)
     head_mask = cv2.erode(head_mask, None, iterations=1)
     head_mask = cv2.dilate(head_mask, None, iterations=4)
-    # cv2.imshow('Tail Mask', tail_mask)
+    cv2.imshow('Tail Mask', tail_mask)
     # if cv2.waitKey(0) & 0xFF == ord('q'):
     #     cv2.destroyAllWindows()
-    # cv2.imshow('Head Mask', head_mask)
+    cv2.imshow('Head Mask', head_mask)
     # if cv2.waitKey(0) & 0xFF == ord('q'):
     #     cv2.destroyAllWindows()
     contours_tail, _ = cv2.findContours(tail_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -135,11 +143,12 @@ def main(img):
 
 if __name__ == "__main__":
     # main()
-    vs = cv2.VideoCapture('http://192.168.149.102:8080/video')
+    vs = cv2.VideoCapture('http://192.168.83.138:8080/video')
     if not vs.isOpened():
         raise IOError("Cannot open video file")
     while True:
         ret, frame = vs.read()
+        print(frame.shape)
         if not ret:
             break
         main(frame)

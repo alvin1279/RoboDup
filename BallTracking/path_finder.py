@@ -13,7 +13,7 @@ def get_paths(contours, start, end):
         if points is None:
             continue
         print('Intersection happened')
-        print(radius)
+        # print(radius)
         start_new = points[0]
         end_new = points[1]
         distance = np.linalg.norm(np.array(centroid) - np.array(start))
