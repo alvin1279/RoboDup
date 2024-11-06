@@ -96,5 +96,5 @@ class CentroidTracker:
 
     def get_all_objects(self):
         # Return current objects and their average centroids
-        objects = {objectID: obj.centroid for objectID, obj in self.objects.items()}
+        objects = {objectID: obj for objectID, obj in self.objects.items()}
         return objects

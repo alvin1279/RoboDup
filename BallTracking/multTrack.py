@@ -153,6 +153,9 @@ ct = CentroidTracker()
 bt = BotMover.BotMover(shape,x_boundaries,y_boundaries,goal_location)
 selected_ball,CornerObjs = None, None
 # HSV range for ball mask
+# jasira camera values
+# lower = (22, 36, 218)
+# upper = (50, 255, 255)
 lower = (22, 36, 218)
 upper = (50, 255, 255)
 
@@ -175,7 +178,7 @@ while True:
 
     # Get mask for object detection
     mask = hlpr.GetMask(hsvImage, lower, upper, 3)
-    bitwise_not = cv2.bitwise_not(mask)
+    # bitwise_not = cv2.bitwise_not(mask)
 
     # Find contours
     contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -194,7 +197,7 @@ while True:
     average_area = sum(contour_areas) / len(contour_areas)
     sd_area = np.std(contour_areas)
     # Update the tracker with new centroids
-    objects = ct.update(inputCentroids)
+    objects = ct.update(inputCentroids) # contains object id and centroid
     # print('objetcs',objects)
     process_tracked_objects(frame,blank_image,cnts,ct,time_interval)
 
