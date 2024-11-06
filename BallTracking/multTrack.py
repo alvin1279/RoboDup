@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import imutils
 from collections import defaultdict
+from collections import deque
 import hsvMaskUtility as hlpr
 from scipy.spatial import distance as dist
 
@@ -102,10 +103,20 @@ start = (100, 100)  # Example start point, adjust as per your image
 end = (300, 300) 
 
 # initialising flags
-selected_flag = False
+already_selected_flag = False
+ball_selected_flag = False
 selectedBall = None
 bot_detected = False
 goal_location = "left"
+near_target = False
+
+contour_areas = deque(maxlen=15)
+contour_radius = deque(maxlen=15)
+average_radius = 30
+average_area = 100
+radius_sd = 10
+area_sd = 50
+
 # ask for goal post choice
 goal_post_choice = input("Choose goal post (left/right): ").strip().lower()
 if goal_post_choice == 'left':
@@ -137,7 +148,7 @@ delay_between_frames = 50
 # Initialize centroid tracker
 ct = CentroidTracker()
 # Initialise BotMover
-bt = BotMover.BotMover(shape)
+bt = BotMover.BotMover(shape,x_boundaries,y_boundaries)
 selected_ball,CornerObjs = None, None
 # HSV range for ball mask
 lower = (26, 42, 167)
@@ -166,12 +177,25 @@ while True:
     # Extract centroids from contours
     inputCentroids = []
     for c in cnts:
-        if cv2.contourArea(c) < 100:
+        area = cv2.contourArea(c)
+        if area < 100:
             continue
-        (x, y, w, h) = cv2.boundingRect(c)
-        centroid = (int(x + w / 2), int(y + h / 2))
+        contour_areas.append(area)
+        # (x, y, w, h) = cv2.boundingRect(c)
+        (x_axis,y_axis),radius = cv2.minEnclosingCircle(c)
+        contour_radius.append(radius)
+        print(f"Radius: {radius}")
+        print(f"Area: {area}")
+        centroid = (int(x_axis), int(y_axis))
         inputCentroids.append(centroid)
-
+    average_area = sum(contour_areas) / len(contour_areas)
+    sd_area = np.std(contour_areas)
+    print(f"Average Area: {average_area}")
+    print(f"SD Area: {sd_area}")
+    average_radius = sum(contour_radius) / len(contour_radius)
+    sd_radius = np.std(contour_radius)
+    print(f"SD Radius: {sd_radius}")
+    print(f"Average Radius: {average_radius}")
     # Update the tracker with new centroids
     objects = ct.update(inputCentroids)
     process_tracked_objects(frame,blank_image,cnts,ct,time_interval)
@@ -186,9 +210,13 @@ while True:
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
         bot_detected = True
         start = bot_center
-    if not selected_flag and bot_detected:
+    # select a ball
+    if not already_selected_flag and bot_detected:
         # Select a ball
         selected_ball,CornerObjs = Selector.selectBall(objects,x_boundaries,y_boundaries,bot_center)
+        if selected_ball is not None:
+            already_selected_flag = True
+            ball_selected_flag = True
         end = selected_ball.centroid
     else:
         # set selected_flag to false if selected_ball is not in objects
@@ -196,10 +224,13 @@ while True:
             if obj == selected_ball:
                 break
             else:
-                selected_flag = False
-    if selected_flag and bot_detected:
+                already_selected_flag = False
+    if ball_selected_flag and bot_detected and not near_target:
         # move the bot
         bt.moveBot(selected_ball, objects)
+        near_target = bt.near_target
+    if ball_selected_flag and bot_detected and near_target:
+        bt.near_target_motions(selected_ball,bot)
     # get path points to target object
     path_points = pf.get_paths(cnts, start, end)
     draw_path(bitwise_not, blank_image, path_points,start, end)
