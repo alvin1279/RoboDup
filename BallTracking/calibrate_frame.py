@@ -92,7 +92,9 @@ def draw_lines_rectangle(img, points):
 
 # Open the video file
 video_path = 'Samples/field_1.mp4'  # Change to your video file path
-cap = cv2.VideoCapture(video_path)
+cap = cv2.VideoCapture('http://192.168.83.138:4747/video')
+
+# cap = cv2.VideoCapture(video_path)
 file_path='Samples/resized_rotated_frame.png'
 redux = 2
 # Check if the video opened successfully
@@ -105,16 +107,16 @@ else:
         captured_frame = frame
         cv2.imshow('Captured Frame', captured_frame)
 
-        rotated_frame = cv2.rotate(captured_frame, cv2.ROTATE_90_CLOCKWISE)
+        # rotated_frame = cv2.rotate(captured_frame, cv2.ROTATE_90_CLOCKWISE)
         # Resize the rotated frame (e.g., to half the original size)
-        height, width = rotated_frame.shape[:2]
-        resized_frame = cv2.resize(rotated_frame, (width // redux, height // redux))
+        # height, width = rotated_frame.shape[:2]
+        # resized_frame = cv2.resize(rotated_frame, (width // redux, height // redux))
 
         # Show the rotated and resized frame
-        cv2.imshow('Rotated and Resized Frame', resized_frame)
+        cv2.imshow('Rotated and Resized Frame', captured_frame)
         cv2.waitKey(0)  # Wait until a key is pressed
 
-        cv2.imwrite(file_path, resized_frame)
+        cv2.imwrite(file_path, captured_frame)
     else:
         print("Error: Could not read frame from video.")
 

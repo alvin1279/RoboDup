@@ -5,15 +5,15 @@ import hsvMaskUtility as hlpr
 
 def findHeadAndTail(img):
     # bot is segmented to tail and head
-    lower_tail = (139,227,131)
-    upper_tail = (145,233,147)
+    lower_tail = (110,136,193)
+    upper_tail = (129,184,255)
     # lower,upper = hlpr.getMaskBoundary(img)
     # print(f"Lower: {lower}, Upper: {upper}")
     # lower_tail = np.array(lower)
     # upper_tail = np.array(upper)
 
-    lower_head = (171,255,127)
-    upper_head = (176,255,139)
+    lower_head = (159,139,226)
+    upper_head = (179,215,255)
     # lower,upper = hlpr.getMaskBoundary(img)
     # print(f"Lower: {lower}, Upper: {upper}")
     # lower_head = np.array(lower)
@@ -23,13 +23,16 @@ def findHeadAndTail(img):
 
     tail_mask = cv2.inRange(HsvImg, lower_tail, upper_tail)
     head_mask = cv2.inRange(HsvImg, lower_head, upper_head)
-
-    cv2.imshow('Tail Mask', tail_mask)
-    if cv2.waitKey(0) & 0xFF == ord('q'):
-        cv2.destroyAllWindows()
-    cv2.imshow('Head Mask', head_mask)
-    if cv2.waitKey(0) & 0xFF == ord('q'):
-        cv2.destroyAllWindows()
+    tail_mask = cv2.erode(tail_mask, None, iterations=1)
+    tail_mask = cv2.dilate(tail_mask, None, iterations=4)
+    head_mask = cv2.erode(head_mask, None, iterations=1)
+    head_mask = cv2.dilate(head_mask, None, iterations=4)
+    # cv2.imshow('Tail Mask', tail_mask)
+    # if cv2.waitKey(0) & 0xFF == ord('q'):
+    #     cv2.destroyAllWindows()
+    # cv2.imshow('Head Mask', head_mask)
+    # if cv2.waitKey(0) & 0xFF == ord('q'):
+    #     cv2.destroyAllWindows()
     contours_tail, _ = cv2.findContours(tail_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     contours_head, _ = cv2.findContours(head_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -110,22 +113,36 @@ def getBotData(img):
 
     return tail_centroid, head_centroid, orientation
 
-def main():
-    img = cv2.imread('Samples/bot.png')
-    img = imutils.resize(img, width=600)
+def main(img):
+    # img = cv2.imread('Samples/bot.jpg')
+    # img = imutils.resize(img, width=600)
     tail_centroid, head_centroid, orientation = getBotData(img)
     if tail_centroid is None or head_centroid is None:
         print("Error: Could not find tail or head centroids.")
         return
     center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
     drawOrientation(img, tail_centroid, head_centroid)
-    cv2.circle(img, center, 5, (0, 255, 0), -1)
-    cv2.circle(img, tail_centroid, 5, (0, 0, 255), -1)
-    cv2.circle(img, head_centroid, 5, (255, 0, 0), -1)
+    cv2.circle(img, center, 1, (0, 255, 0), -1)
+    cv2.circle(img, tail_centroid, 1, (0, 0, 255), -1)
+    cv2.circle(img, head_centroid, 1, (255, 0, 0), -1)
     print(f"orientation: {orientation}")
     cv2.imshow('Bot Orientation', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()
+    # main()
+    vs = cv2.VideoCapture('http://192.168.149.102:8080/video')
+    if not vs.isOpened():
+        raise IOError("Cannot open video file")
+    while True:
+        ret, frame = vs.read()
+        if not ret:
+            break
+        main(frame)
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("q"):
+            break
+
+    vs.release()
+    cv2.destroyAllWindows()

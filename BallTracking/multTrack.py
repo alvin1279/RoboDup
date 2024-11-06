@@ -5,6 +5,7 @@ from collections import defaultdict
 from collections import deque
 import hsvMaskUtility as hlpr
 from scipy.spatial import distance as dist
+import json
 
 from centroidClass import CentroidTracker
 import path_finder as pf
@@ -22,8 +23,9 @@ def load_frame_data():
         left_goal_end = tuple(map(int, left_goal_points[1]))
         right_goal_start = tuple(map(int, right_goal_points[0]))
         right_goal_end = tuple(map(int, right_goal_points[1]))
+        warp_matrix = json_data['warp_matrix']
         print("JSON data loaded successfully.")
-    return shape, left_goal_start, left_goal_end, right_goal_start, right_goal_end
+    return shape, left_goal_start, left_goal_end, right_goal_start, right_goal_end,warp_matrix
 
 # Function to draw tracking information on the frame (parallelized version)
 def draw_tracking_info(frame, blank_image, cnts, centroid, objectID, objcVector, speed):
@@ -128,7 +130,7 @@ else:
     goal_location = "left"
 
 # load frame data
-shape, left_goal_start, left_goal_end, right_goal_start, right_goal_end = load_frame_data()
+shape, left_goal_start, left_goal_end, right_goal_start, right_goal_end,warp_matrix = load_frame_data()
 # construct a smaller rectangle inside shape to avoid boundary errors and corners
 x_offset = 30
 y_offset = 30
@@ -137,7 +139,7 @@ y_boundaries = shape[1] + y_offset, shape[1] - y_offset
 
 
 # Load video file / camera
-vs = cv2.VideoCapture('Samples/vid1.mp4')
+vs = cv2.VideoCapture('http://192.168.149.102:8080/video')
 if not vs.isOpened():
     raise IOError("Cannot open video file")
 
@@ -148,21 +150,26 @@ delay_between_frames = 50
 # Initialize centroid tracker
 ct = CentroidTracker()
 # Initialise BotMover
-bt = BotMover.BotMover(shape,x_boundaries,y_boundaries)
+bt = BotMover.BotMover(shape,x_boundaries,y_boundaries,goal_location)
 selected_ball,CornerObjs = None, None
 # HSV range for ball mask
-lower = (26, 42, 167)
-upper = (179, 255, 255)
+lower = (22, 36, 218)
+upper = (50, 255, 255)
+
 # blank image for path and objects to be drawn
 path_image = np.zeros((500, 900, 3), np.uint8)
 while True:
     ret, frame = vs.read()
+    # frame = cv2.warpPerspective(img, M, (width, height))
+# left
     if not ret:
         break
     # Preprocess the frame
     frame = imutils.resize(frame, width=900)
     hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
+    # lower, upper = hlpr.getMaskBoundary(frame)
+    # print(lower)
+    # print(upper)
     # Create blank image same as frame
     blank_image = np.zeros((frame.shape[0], frame.shape[1], 3), np.uint8)
 
@@ -178,46 +185,41 @@ while True:
     inputCentroids = []
     for c in cnts:
         area = cv2.contourArea(c)
-        if area < 100:
+        if area < 300:
             continue
         contour_areas.append(area)
-        # (x, y, w, h) = cv2.boundingRect(c)
-        (x_axis,y_axis),radius = cv2.minEnclosingCircle(c)
-        contour_radius.append(radius)
-        print(f"Radius: {radius}")
-        print(f"Area: {area}")
-        centroid = (int(x_axis), int(y_axis))
+        (x, y, w, h) = cv2.boundingRect(c)
+        centroid = (int(x + w / 2), int(y + h / 2))
         inputCentroids.append(centroid)
     average_area = sum(contour_areas) / len(contour_areas)
     sd_area = np.std(contour_areas)
-    print(f"Average Area: {average_area}")
-    print(f"SD Area: {sd_area}")
-    average_radius = sum(contour_radius) / len(contour_radius)
-    sd_radius = np.std(contour_radius)
-    print(f"SD Radius: {sd_radius}")
-    print(f"Average Radius: {average_radius}")
     # Update the tracker with new centroids
     objects = ct.update(inputCentroids)
+    # print('objetcs',objects)
     process_tracked_objects(frame,blank_image,cnts,ct,time_interval)
 
     # find the bot
     bot_data = DetectBot.getBotData(frame)
-    if bot_data[0] == None or bot_data[1] == None or bot_data[2] == None or bot_data[3] == None:
+    if bot_data[0] == None or bot_data[1] == None or bot_data[2] == None:
         bot_detected = False
-        bt.updateBotData(None)
     else:
+        bt.updateBotData(bot_data)
         tail_centroid,head_centroid,_ = bot_data
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
+        DetectBot.drawOrientation(frame,tail_centroid,head_centroid)
         bot_detected = True
         start = bot_center
     # select a ball
     if not already_selected_flag and bot_detected:
         # Select a ball
+        tail_centroid,head_centroid,_ = bot_data
+        bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
         selected_ball,CornerObjs = Selector.selectBall(objects,x_boundaries,y_boundaries,bot_center)
+        # print(selected_ball)
         if selected_ball is not None:
             already_selected_flag = True
             ball_selected_flag = True
-        end = selected_ball.centroid
+            end = objects[selected_ball]
     else:
         # set selected_flag to false if selected_ball is not in objects
         for obj in objects.values():
@@ -225,20 +227,21 @@ while True:
                 break
             else:
                 already_selected_flag = False
-    if ball_selected_flag and bot_detected and not near_target:
-        # move the bot
-        bt.moveBot(selected_ball, objects)
-        near_target = bt.near_target
-    if ball_selected_flag and bot_detected and near_target:
-        bt.near_target_motions(selected_ball,bot)
+    # if ball_selected_flag and bot_detected and not near_target:
+    #     # move the bot
+    #     bt.moveBot(objects[selected_ball], objects)
+    #     near_target = bt.near_target
+    # if ball_selected_flag and bot_detected and near_target:
+        # bt.near_target_motions(objects[selected_ball],bot)
     # get path points to target object
     path_points = pf.get_paths(cnts, start, end)
-    draw_path(bitwise_not, blank_image, path_points,start, end)
+    print(start,end)
+    draw_path(bitwise_not, frame, path_points,start, end)
 
-    cv2.imshow('bitwise_not',bitwise_not)
-    cv2.imshow("blank_image", blank_image)
+    cv2.imshow('mask',mask)
+    cv2.imshow("blank_image", frame)
     # reduce nummber to 1 to go back to normal frame rate
-    key = cv2.waitKey(200) & 0xFF
+    key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         break
 

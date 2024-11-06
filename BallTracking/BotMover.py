@@ -3,11 +3,12 @@ import path_finder as pf
 from collections import deque
 
 class BotMover:
-    def __init__(self, shape,x_boundaries, y_boundaries):
+    def __init__(self, shape,x_boundaries, y_boundaries,goal_location):
         self.shape = shape
         self.bot_data = None
         self.x_boundaries = x_boundaries
         self.y_boundaries = y_boundaries
+        self.goal_location = goal_location
         # store current Bot data
         self.tail_centroid = None
         self.head_centroid = None
@@ -97,8 +98,8 @@ class BotMover:
             raise ValueError("Bot data is not updated")
         self.move_bot(selected_centroid, distance)
 
-    def check_centroid_in_between(self, bot_head, selected_centroid, goal_location):
-        if goal_location == 'left':
+    def check_centroid_in_between(self, bot_head, selected_centroid):
+        if self.goal_location == 'left':
             if bot_head[0] < selected_centroid[0]:
                 return True
         else:

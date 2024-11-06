@@ -11,7 +11,7 @@ hsvImage = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 lower = (26, 42, 167)
 upper = (179, 255, 255)
 # uncomment code to open window to get mask boundaries
-'''
+# '''
 lower,upper = hlpr.getMaskBoundary(img)
 print(lower)
 print(upper)
