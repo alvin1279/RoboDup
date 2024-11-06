@@ -45,6 +45,12 @@ class BotMover:
         self.bot_hemisphere = 'top' if self.bot_center[1] > self.shape[1] // 2 else 'bottom'
         
         # Adjust scales with PID if there is previous bot data
+
+    # start the bot movement
+    def move_bot(self, selected_centroid, all_ball_objects):
+        if self.bot_data is None:
+            raise ValueError("Bot data is not updated")
+        # recalculate the predicted values based on the previous movement
         if self.predicted_angle is not None:
             angle_error = self.angle - self.predicted_angle
             angle_error = self.normalize_angle(angle_error)
@@ -52,27 +58,21 @@ class BotMover:
             self.adjust_angle_scales_with_pid(angle_error)
             self.adjust_distance_scales_with_pid(distance_error)
 
-    # start the bot movement
-    def moveBot(self, selected_centroid, all_ball_objects):
-        if self.bot_data is None:
-            raise ValueError("Bot data is not updated")
-        # set the bot center and selected object centroid
-
         # calculate the distance and angle between bot center and selected object
-        centroid_in_between = self.check_centroid_in_between(self.tail_centroid, selected_centroid)
-        if centroid_in_between:
+        bot_in_between = self.check_bot_in_between(self.tail_centroid, selected_centroid)
+        if bot_in_between:
             self.get_behing_ball(selected_centroid,all_ball_objects)
         else:
             self.move_directly(selected_centroid, all_ball_objects)
 
-    def move_directly(self, selected_centroid):
+    def move_directly(self, selected_centroid, all_ball_objects):
         distance = np.sqrt((self.bot_center[0] - selected_centroid[0]) ** 2 + (self.bot_center[1] - selected_centroid[1]) ** 2)
         # move only till specific distance
         if distance > 90:
             self.near_target = False
             intersection_points = self.check_interSection(selected_centroid, all_ball_objects)
             if intersection_points is None:
-                self.determine_movement(selected_centroid)
+                self.generate_movement_comand(selected_centroid, distance)
                 self.intersection = False
             else:
                 self.intersection = True
@@ -93,12 +93,7 @@ class BotMover:
                 break
         return intersection_points
 
-    def determine_movement(self, selected_centroid):
-        if self.bot_data is None:
-            raise ValueError("Bot data is not updated")
-        self.move_bot(selected_centroid, distance)
-
-    def check_centroid_in_between(self, bot_head, selected_centroid):
+    def check_bot_in_between(self, bot_head, selected_centroid):
         if self.goal_location == 'left':
             if bot_head[0] < selected_centroid[0]:
                 return True
@@ -107,7 +102,7 @@ class BotMover:
                 return True
         return False
 
-    def move_bot(self, selected_centroid, distance):
+    def generate_movement_comand(self, selected_centroid, distance):
         if self.bot_data is None:
             raise ValueError("Bot data is not updated")
         # move the bot to the selected ball
@@ -115,15 +110,17 @@ class BotMover:
         
         tail_centroid, head_centroid, angle = self.bot_data
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
-        angle = np.arctan2(selected_centroid[1] - bot_center[1], selected_centroid[0] - bot_center[0]) * 180 / np.pi
-        angle = self.normalize_angle(angle)
+        bot_ball_angle = np.arctan2(selected_centroid[1] - bot_center[1], selected_centroid[0] - bot_center[0]) * 180 / np.pi
+        bot_angle = self.orientation
+        print('Bot angle:', angle)
+        # angle = self.normalize_angle(angle)
         # adjust angle until almost till zero
-        if angle > 90 or angle < 270:
+        if bot_angle > 90 or bot_angle < 270:
             # do left if bot is in top half to avoid hitting the wall
             if self.bot_hemisphere == 'top':
-                direction = 'l'
-            else :
                 direction = 'r'
+            else :
+                direction = 'l'
             movement_command += direction + '10' # adjust value according to bot response
         else:
             movement_command += self.determine_rotation(angle)

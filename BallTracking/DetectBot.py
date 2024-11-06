@@ -5,6 +5,9 @@ import hsvMaskUtility as hlpr
 
 def findHeadAndTail(img):
     # bot is segmented to tail and head
+    # jasira hsv values
+    # lower_tail = (110,136,193)
+    # upper_tail = (129,184,255)
     lower_tail = (110,136,193)
     upper_tail = (129,184,255)
     # lower,upper = hlpr.getMaskBoundary(img)

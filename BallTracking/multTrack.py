@@ -6,6 +6,7 @@ from collections import deque
 import hsvMaskUtility as hlpr
 from scipy.spatial import distance as dist
 import json
+import time
 
 from centroidClass import CentroidTracker
 import path_finder as pf
@@ -111,6 +112,7 @@ selectedBall = None
 bot_detected = False
 goal_location = "left"
 near_target = False
+time_started_flag = False
 
 contour_areas = deque(maxlen=15)
 contour_radius = deque(maxlen=15)
@@ -162,6 +164,14 @@ upper = (50, 255, 255)
 # blank image for path and objects to be drawn
 path_image = np.zeros((500, 900, 3), np.uint8)
 while True:
+    intiate_movement = False
+    if not time_started_flag:
+        start_time = time.time()
+        time_started_flag = True
+    end_time = time.time()
+    if end_time - start_time > 3:
+        time_started_flag = False
+        intiate_movement = True
     ret, frame = vs.read()
     # frame = cv2.warpPerspective(img, M, (width, height))
 # left
@@ -222,7 +232,7 @@ while True:
         if selected_ball is not None:
             already_selected_flag = True
             ball_selected_flag = True
-            end = objects[selected_ball]
+            end = selected_ball.centroid
     else:
         # set selected_flag to false if selected_ball is not in objects
         for obj in objects.values():
@@ -230,12 +240,12 @@ while True:
                 break
             else:
                 already_selected_flag = False
-    # if ball_selected_flag and bot_detected and not near_target:
-    #     # move the bot
-    #     bt.moveBot(objects[selected_ball], objects)
-    #     near_target = bt.near_target
+    if ball_selected_flag and bot_detected and selected_ball and intiate_movement:
+        # move the bot
+        bt.move_bot(selected_ball.centroid, objects.values())
+        near_target = bt.near_target
     # if ball_selected_flag and bot_detected and near_target:
-        # bt.near_target_motions(objects[selected_ball],bot)
+    #     bt.near_target_motions(objects[selected_ball],bot)
     # get path points to target object
     path_points = pf.get_paths(cnts, start, end)
     print(start,end)
