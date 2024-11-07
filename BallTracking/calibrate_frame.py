@@ -234,7 +234,9 @@ if cnts:  # Check if contours exist
         "transformed_right_goal_post": transformed_right_goal_post.tolist(),
         "redux": redux,
         "warp_matrix": M.tolist(),
-        "shape": warped.shape
+        "shape": warped.shape,
+        "width": width,
+        "height": height
     }
 
     print(data)

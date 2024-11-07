@@ -17,16 +17,14 @@ import BotMover
 def load_frame_data():
     with open('Datas/final_warped.json', 'r') as json_file:
         json_data = json.load(json_file)
-        shape = tuple(map(int, json_data['shape']))
-        right_goal_points = json_data['transformed_right_goal_post']
-        left_goal_points = json_data['transformed_left_goal_post']
-        left_goal_start = tuple(map(int, left_goal_points[0]))
-        left_goal_end = tuple(map(int, left_goal_points[1]))
-        right_goal_start = tuple(map(int, right_goal_points[0]))
-        right_goal_end = tuple(map(int, right_goal_points[1]))
+        transformed_left_goal_post = json_data['transformed_left_goal_post']
+        transformed_right_goal_post = json_data['transformed_right_goal_post']
+        redux = json_data['redux']
         warp_matrix = json_data['warp_matrix']
-        print("JSON data loaded successfully.")
-    return shape, left_goal_start, left_goal_end, right_goal_start, right_goal_end,warp_matrix
+        shape = tuple(map(int, json_data['shape']))
+        width = json_data['width']
+        height = json_data['height']
+    return transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height
 
 # Function to draw tracking information on the frame (parallelized version)
 def draw_tracking_info(frame, blank_image, cnts, centroid, objectID, objcVector, speed):
@@ -132,7 +130,7 @@ else:
     goal_location = "left"
 
 # load frame data
-shape, left_goal_start, left_goal_end, right_goal_start, right_goal_end,warp_matrix = load_frame_data()
+transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height = load_frame_data()
 # construct a smaller rectangle inside shape to avoid boundary errors and corners
 x_offset = 5
 y_offset = 5
@@ -181,6 +179,8 @@ while True:
         break
     # Preprocess the frame
     frame = imutils.resize(frame, width=900)
+    # Apply the perspective warp to the frame
+    frame = cv2.warpPerspective(frame, np.array(warp_matrix), (width, height)) 
     hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     # lower, upper = hlpr.getMaskBoundary(frame)
     # print(lower)
