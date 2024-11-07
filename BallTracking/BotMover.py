@@ -61,6 +61,7 @@ class BotMover:
         # calculate the distance and angle between bot center and selected object
         bot_in_between = self.check_bot_in_between(self.tail_centroid, selected_centroid)
         if bot_in_between:
+            return false
             self.get_behing_ball(selected_centroid,all_ball_objects)
         else:
             self.move_directly(selected_centroid, all_ball_objects)
@@ -94,14 +95,7 @@ class BotMover:
                 break
         return intersection_points
 
-    def check_bot_in_between(self, bot_head, selected_centroid):
-        if self.goal_location == 'left':
-            if bot_head[0] < selected_centroid[0]:
-                return True
-        else:
-            if bot_head[0] > selected_centroid[0]:
-                return True
-        return False
+
 
     def generate_movement_comand(self, selected_centroid, distance):
         if self.bot_data is None:
@@ -131,18 +125,13 @@ class BotMover:
         print(f"Bot Movement: {movement_command}")
         self.predic_movement_updates(distance)
 
-    def determine_rotation(self, angle):
-        direction = 'f'
-        rotation_scale_hex = '00'
-        if 5 < angle < 90:
-            direction = 'l'
-        elif 270 < angle < 355:
-            direction = 'r'
+    def determine_rotation(self, angle_differnce):
+        direction = ''
         rotation_scale_hex = self.decaToHex(self.previous_rotation_scale)
-        if len(rotation_scale_hex) == 1:
-            rotation_scale_hex = '0' + rotation_scale_hex
-        return direction + rotation_scale_hex
-    
+        if angle_differnce > 0:
+            return 'r'
+        else: 
+            return 'l'    
     def predic_movement_updates(self, distance):
         # Calculate predicted values based on scaling factors
         predicted_angle = self.normalize_angle(self.angle + (10 * self.previous_rotation_scale))
@@ -184,7 +173,23 @@ class BotMover:
         print("Bot is near target")
         distance = np.sqrt((self.bot_center[0] - selected_centroid[0]) ** 2 + (self.bot_center[1] - selected_centroid[1]) ** 2)
         
-
+    def move_to_location(location):
+        print(f"Moving to location {location}")
+        # Move the bot to the location
+        locx,locy = location
+        bot_location_angle = np.arctan2(locy - self.bot_center[1], locx - self.bot_center[0]) * 180 / np.pi
+        distance = np.sqrt((self.bot_center[0] - locx) ** 2 + (self.bot_center[1] - locy) **
+        bot_angle = self.angle
+        angle_differnce =bot_location_angle - bot_angle 
+        if abs(angle_differnce) > 10:
+            # Rotate the bot to the location
+            rotation_direction = self.determine_rotation(angle_differnce)
+            movement_command = rotation_direction + slef.decaToHex(self.previous_rotation_scale)
+        else:
+            if distance > 90:
+                movement_command = 'F' + self.decaToHex(self.previous_distance_scale)
+            else:
+                movement_command = 's00'
     @staticmethod
     def normalize_angle(angle):
         return angle % 360

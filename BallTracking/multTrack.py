@@ -164,14 +164,15 @@ path_image = np.zeros((500, 900, 3), np.uint8)
 start_time = time.time()
 
 while True:
-    # intiate_movement = False
-    # if not time_started_flag:
-    #     start_time = time.time()
-    #     time_started_flag = True
-    # if time.time() - start_time > 3:
-    #     print('endtiming')
-    #     time_started_flag = False
-    #     intiate_movement = True
+    initiate_movement = False
+    if not time_started_flag:
+        start_time = time.time()
+        time_started_flag = True
+    if time.time() - start_time > 3:
+        print('endtiming')
+        time_started_flag = False
+        start_time = time.time()
+        initiate_movement = True
     ret, frame = vs.read()
     # frame = cv2.warpPerspective(img, M, (width, height))
 # left
@@ -225,29 +226,34 @@ while True:
         bot_detected = True
         start = bot_center
     # select a ball
-    if not already_selected_flag and bot_detected:
-        # Select a ball
-        tail_centroid,head_centroid,_ = bot_data
-        bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
-        selected_ball,CornerObjs = Selector.selectBall(objects,x_boundaries,y_boundaries,bot_center)
-        # print(selected_ball)
-        # print(selected_ball)
-        if selected_ball is not None:
-            already_selected_flag = True
-            ball_selected_flag = True
-            end = selected_ball.centroid
-    else:
-        # set selected_flag to false if selected_ball is not in objects
-        for obj in objects.values():
-            if obj == selected_ball:
-                break
+    if initiate_movement:
+        if not already_selected_flag and bot_detected:
+            # Select a ball
+            tail_centroid, head_centroid, _ = bot_data
+            bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
+            selected_ball, CornerObjs = Selector.selectBall(objects, x_boundaries, y_boundaries, bot_center, goal_location)
+            if selected_ball is not None:
+                already_selected_flag = True
+                ball_selected_flag = True
+                end = selected_ball.centroid
+        else:
+            # set selected_flag to false if selected_ball is not in objects
+            for obj in objects.values():
+                if obj == selected_ball:
+                    break
+                else:
+                    already_selected_flag = False
+        if ball_selected_flag and bot_detected and selected_ball and already_selected_flag:
+            # move the bot
+            print('initiating movement')
+            bt.move_to_location(selected_ball.centroid)
+            near_target = bt.near_target
+        else:
+            print('moving to default location')
+            if goal_location == 'left':
+                bt.move_to_location(shape[0] // 2 + 30, shape[1] // 30)
             else:
-                already_selected_flag = False
-    if ball_selected_flag and bot_detected and selected_ball:
-        # move the bot
-        print('initiating movement')
-        bt.move_bot(selected_ball.centroid, objects.values())
-        near_target = bt.near_target
+                bt.move_to_location(shape[0] // 2 - 30, shape[1] // 30)
     # if ball_selected_flag and bot_detected and near_target:
     #     bt.near_target_motions(objects[selected_ball],bot)
     # get path points to target object
