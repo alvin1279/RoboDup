@@ -1,4 +1,6 @@
-# Robo
+# RoboSoccer
+
+Team SixthSense
 
 
 
