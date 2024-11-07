@@ -174,11 +174,10 @@ while True:
         start_time = time.time()
         initiate_movement = True
     ret, frame = vs.read()
-    # frame = cv2.warpPerspective(img, M, (width, height))
-# left
+
     if not ret:
         break
-    # Preprocess the frame
+    # apply same width to calibration to avoid warping errors
     frame = imutils.resize(frame, width=900)
     # Apply the perspective warp to the frame
     frame = cv2.warpPerspective(frame, np.array(warp_matrix), (width, height)) 
@@ -207,8 +206,6 @@ while True:
         (x, y, w, h) = cv2.boundingRect(c)
         centroid = (int(x + w / 2), int(y + h / 2))
         inputCentroids.append(centroid)
-    average_area = sum(contour_areas) / len(contour_areas)
-    sd_area = np.std(contour_areas)
     # Update the tracker with new centroids
     objects = ct.update(inputCentroids) # contains object id and centroid
     # print('objetcs',objects)
@@ -219,7 +216,7 @@ while True:
     if bot_data[0] == None or bot_data[1] == None or bot_data[2] == None:
         bot_detected = False
     else:
-        bt.updateBotData(bot_data)
+        bt.update_bot_data(bot_data)
         tail_centroid,head_centroid,_ = bot_data
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
         DetectBot.drawOrientation(frame,tail_centroid,head_centroid)
@@ -246,14 +243,14 @@ while True:
         if ball_selected_flag and bot_detected and selected_ball and already_selected_flag:
             # move the bot
             print('initiating movement')
-            bt.move_to_location(selected_ball.centroid)
+            bt.move_to_selected_ball(selected_ball.centroid)
             near_target = bt.near_target
         else:
             print('moving to default location')
             if goal_location == 'left':
-                bt.move_to_location(shape[0] // 2 + 30, shape[1] // 30)
+                bt.orient_and_move_to_location(shape[0] // 2 + 30, shape[1] // 30)
             else:
-                bt.move_to_location(shape[0] // 2 - 30, shape[1] // 30)
+                bt.orient_and_move_to_location(shape[0] // 2 - 30, shape[1] // 30)
     # if ball_selected_flag and bot_detected and near_target:
     #     bt.near_target_motions(objects[selected_ball],bot)
     # get path points to target object
