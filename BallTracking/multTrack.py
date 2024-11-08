@@ -13,6 +13,7 @@ import path_finder as pf
 import BallSelector as Selector
 import DetectBot
 import BotMover
+import VideoProcessor
 
 def load_frame_data():
     with open('Datas/final_warped.json', 'r') as json_file:
@@ -25,55 +26,7 @@ def load_frame_data():
         width = json_data['width']
         height = json_data['height']
     return transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height
-
-# Function to draw tracking information on the frame (parallelized version)
-def draw_tracking_info(frame, blank_image, cnts, centroid, objectID, objcVector, speed):
-    for c in cnts:
-        (x, y, w, h) = cv2.boundingRect(c)
-        if (int(x + w / 2), int(y + h / 2)) == centroid:
-            # Draw bounding box
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-
-            # Extend arrow endpoint based on angle
-            # Get the x and y components of the vector
-            vx, vy = objcVector  # The movement vector
-            scale_factor = 10
-
-            # Extend the line from the centroid using the vector
-            xext = int(centroid[0] + vx)
-            yext = int(centroid[1] + vy)
-
-            # Draw arrow for movement direction
-            cv2.arrowedLine(frame, centroid, (xext, yext), (0, 255, 0), 2, tipLength=0.2)
-
-            # Display object ID and speed
-            cv2.putText(frame, f"ID {objectID} Speed: {speed:.2f} px/sec", 
-                        (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-            # Draw all this in blank image
-            cv2.rectangle(blank_image, (x, y), (x + w, y + h), (255, 255, 255), -1)
-            cv2.arrowedLine(blank_image, centroid, (xext, yext), (0, 255, 0), 2, tipLength=0.2)
-            cv2.putText(blank_image, f"ID {objectID} Speed: {speed:.2f} px/sec", 
-                        (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-            
-# Function to process all tracked objects in parallel
-def process_tracked_objects(frame, blank_image, cnts, ct, time_interval):
-
-    for objectID, obj in ct.objects.items():
-        centroid = obj.centroid
-        object_vector = obj.vector
-        displacement = obj.displacement
-        current_speed = 0
-        
-        if len(obj.centroid_history) > 1:            
-            current_speed = displacement / time_interval
-        else:
-            current_speed = 0
-
-        # Submit each task to the executor
-        draw_tracking_info(frame, blank_image, cnts, centroid, objectID, object_vector, current_speed)
-        
+      
 def draw_path(bitwise_not, blank_image, path_points, start, end):
     grey_color = (25, 25, 25)  # Grey color for the lines
     red = (0, 0, 255)  # Red color for the lines
@@ -115,9 +68,6 @@ time_started_flag = False
 contour_areas = deque(maxlen=15)
 contour_radius = deque(maxlen=15)
 average_radius = 30
-average_area = 100
-radius_sd = 10
-area_sd = 50
 
 # ask for goal post choice
 goal_post_choice = input("Choose goal post (left/right): ").strip().lower()
@@ -139,25 +89,13 @@ y_boundaries = shape[1] + y_offset, shape[1] - y_offset
 
 
 # Load video file / camera
-vs = cv2.VideoCapture('http://192.168.83.138:8080/video')
-if not vs.isOpened():
-    raise IOError("Cannot open video file")
-
-fps = vs.get(cv2.CAP_PROP_FPS)
-time_interval = 1 / fps
-delay_between_frames = 50
-
+vs = VideoProcessor.load_video_stream('http://192.168.83.138:8080/video')
 # Initialize centroid tracker
 ct = CentroidTracker()
 # Initialise BotMover
 bt = BotMover.BotMover(shape,x_boundaries,y_boundaries,goal_location)
+
 selected_ball,CornerObjs = None, None
-# HSV range for ball mask
-# jasira camera values
-# lower = (22, 36, 218)
-# upper = (50, 255, 255)
-lower = (22, 36, 218)
-upper = (50, 255, 255)
 
 # blank image for path and objects to be drawn
 path_image = np.zeros((500, 900, 3), np.uint8)
@@ -181,36 +119,21 @@ while True:
     frame = imutils.resize(frame, width=900)
     # Apply the perspective warp to the frame
     frame = cv2.warpPerspective(frame, np.array(warp_matrix), (width, height)) 
-    hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    # lower, upper = hlpr.getMaskBoundary(frame)
-    # print(lower)
-    # print(upper)
+
+
     # Create blank image same as frame
     blank_image = np.zeros((frame.shape[0], frame.shape[1], 3), np.uint8)
-
     # Get mask for object detection
-    mask = hlpr.GetMask(hsvImage, lower, upper, 3)
+    ball_mask = VideoProcessor.get_ball_mask(frame)
+
     bitwise_not = cv2.bitwise_not(mask)
 
-    # Find contours
-    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = imutils.grab_contours(contours)
-
-    # Extract centroids from contours
-    inputCentroids = []
-    for c in cnts:
-        area = cv2.contourArea(c)
-        if area < 300:
-            continue
-        contour_areas.append(area)
-        (x, y, w, h) = cv2.boundingRect(c)
-        centroid = (int(x + w / 2), int(y + h / 2))
-        inputCentroids.append(centroid)
+    bounding_rects = VideoProcessor.get_ball_bounding_rects(ball_mask)
     # Update the tracker with new centroids
-    objects = ct.update(inputCentroids) # contains object id and centroid
-    # print('objetcs',objects)
-    process_tracked_objects(frame,blank_image,cnts,ct,time_interval)
-
+    objects = ct.update(bounding_rects) # contains ball as objects
+    # draw ball tracking info
+    draw_ball_tracking_info([frame, blank_image], objects)
+    
     # find the bot
     bot_data = DetectBot.getBotData(frame)
     if bot_data[0] == None or bot_data[1] == None or bot_data[2] == None:

@@ -2,9 +2,10 @@ import math
 from collections import deque
 
 class TrackedObject:
-    def __init__(self, objectID, centroid, maxHistory=5):
+    def __init__(self, objectID, centroid, bounding_rectangle, maxHistory=5):
         # Assign an ID to the object and initialize properties
         self.objectID = objectID
+        self.bounding_rectangle = bounding_rectangle
         self.centroid = centroid
         self.centroid_history = deque([centroid], maxlen=maxHistory)  # Using deque for centroid history
         self.maxHistory = maxHistory
@@ -16,10 +17,11 @@ class TrackedObject:
         self.vector_history = deque([(0, 0)], maxlen=maxHistory)  # Using deque for vector history
         self.displacement_history = deque([0], maxlen=maxHistory)  # Using deque for displacement history
 
-    def update_centroid(self, new_centroid):
+    def update_centroid(self, new_centroid, new_bounding_rectangle):
         # Update the current centroid and maintain centroid history
         self.update_movements(new_centroid)
         self.centroid_history.append(new_centroid)
+        self.bounding_rectangle = new_bounding_rectangle
 
     def mark_disappeared(self):
         # Increase the disappeared count for the object
