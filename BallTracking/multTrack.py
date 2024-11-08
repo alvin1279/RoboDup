@@ -3,6 +3,7 @@ import numpy as np
 import imutils
 import json
 import time
+from multiprocessing import Process, Queue
 
 from centroidClass import CentroidTracker
 import path_finder as pf
@@ -29,7 +30,6 @@ selected_ball, CornerObjs = None, None
 start_time = time.time()
 
 def load_frame_data():
-    with open('Datas/final_warped.json', 'r') as json_file:
         json_data = json.load(json_file)
         transformed_left_goal_post = json_data['transformed_left_goal_post']
         transformed_right_goal_post = json_data['transformed_right_goal_post']
@@ -80,7 +80,7 @@ def process_frame(frame, ct, goal_location):
 
     return objects, bot_data
 
-def process_bot_movement(objects, bot_data, bt, selector, shape):
+def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame):
     # initate movement every 1 second
     initiate_movement = time_interval_checker(1)
     global already_selected_flag, ball_selected_flag, selected_ball, bot_detected, near_target, start, end
@@ -128,6 +128,18 @@ def process_bot_movement(objects, bot_data, bt, selector, shape):
     
     return start, end
 
+def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_data_queue):
+    while True:
+        if not frame_queue.empty() and not bot_data_queue.empty():
+            frame = frame_queue.get()
+            bot_data, objects = bot_data_queue.get()  # Unpack the tuple
+            start, end = process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame)
+            path_points = pf.get_paths(cnts, start, end)
+            videoProcessor.draw_path([frame], path_points, start, end)
+            cv2.imshow('frame', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
 def main():
     goal_location = ask_goal_post()
     # load frame data
@@ -148,6 +160,12 @@ def main():
     # Initialize BallSelector
     selector = BallSelector(x_boundaries, y_boundaries, goal_location)
 
+    frame_queue = Queue()
+    bot_data_queue = Queue()
+
+    bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue))
+    bot_process.start()
+
     while True:
         ret, frame = vs.read()
 
@@ -160,20 +178,14 @@ def main():
         objects, bot_data = process_frame(frame, ct, goal_location)
 
         # draw ball tracking info
-        draw_ball_tracking_info([frame, blank_image], objects)
-        start, end = process_bot_movement(objects, bot_data, bt, selector, shape)
-        path_points = pf.get_paths(cnts, start, end)
-       
-        # if ball_selected_flag and bot_detected and near_target:
-        #     bt.near_target_motions(objects[selected_ball],bot)
-        # get path points to target object
-        # print(start,end)
-        # draw path
-        videoProcessor.draw_path([blank_image, frame], path_points, start, end)
+        VideoProcessor.draw_ball_tracking_info([frame, blank_image], objects)
+
+        frame_queue.put(frame)
+        bot_data_queue.put((bot_data, objects))  # Combine bot_data and objects into a tuple
 
         cv2.imshow('blank_image', blank_image)
         cv2.imshow("frame", frame)
-        # reduce nummber to 1 to go back to normal frame rate
+        # reduce number to 1 to go back to normal frame rate
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
@@ -181,6 +193,7 @@ def main():
     # Cleanup
     vs.release()
     cv2.destroyAllWindows()
+    bot_process.terminate()
 
 if __name__ == "__main__":
     try:
