@@ -1,10 +1,6 @@
 import json
 import cv2
-import hsvLowerUpper as hlpr
 import imutils
-
-from centroidClass import CentroidTracker
-
 
 # HSV range for ball mask
 # jasira camera values
@@ -12,7 +8,10 @@ from centroidClass import CentroidTracker
 # upper = (50, 255, 255)
 lower = (22, 36, 218)
 upper = (50, 255, 255)
-time_interval = 30
+time_interval = 1
+grey_color = (25, 25, 25)  # Grey color for the lines
+red = (0, 0, 255)  # Red color for the lines
+
 def load_frame_data():
     with open('Datas/final_warped.json', 'r') as json_file:
         json_data = json.load(json_file)
@@ -44,6 +43,20 @@ def get_ball_mask(frame):
     """
     mask = hlpr.GetMask(hsvImage, lower, upper, 3)
     return mask
+def GetMask(hsv, lower_color, upper_color,filter_radius):
+    """
+    Returns the contours generated from the given color range
+    """
+    
+    # Threshold the HSV image to get only cloth colors
+    mask = cv2.inRange(hsv, lower_color, upper_color)
+    mask = cv2.erode(mask, None, iterations=1)
+    mask = cv2.dilate(mask, None, iterations=4)
+    
+    #use a median filter to get rid of speckle noise
+    median = cv2.medianBlur(mask,filter_radius)
+
+    return median
 
 # get input centroids, and also draws rectangle around the object
 def get_ball_bounding_rects(mask,image):
@@ -94,8 +107,6 @@ def draw_ball_datas(img,objID,obj,speed):
                 (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
 def draw_path(images=[], path_points, start, end):
-    grey_color = (25, 25, 25)  # Grey color for the lines
-    red = (0, 0, 255)  # Red color for the lines
 
     start_point = start  # Use the provided start point directly
 
@@ -105,13 +116,15 @@ def draw_path(images=[], path_points, start, end):
         new_end = path[1]
         
         # Draw line from start point to new start
-        cv2.line(bitwise_not, start_point, new_start, grey_color, 2)
-        cv2.line(blank_image, start_point, new_start, red, 2)
+        for img in images:    
+            cv2.line(img, start_point, new_start, grey_color, 2)
+            cv2.line(img, start_point, new_start, red, 2)
         
         # Update start_point to be new_end for the next iteration
         start_point = new_end
 
     # After the loop, connect the last end point to the final goal
     end_point = end
-    cv2.line(bitwise_not, start_point, end_point, grey_color, 2)
-    cv2.line(blank_image, start_point, end_point, red, 2)
+    for img in images:    
+        cv2.line(img, start_point, end_point, grey_color, 2)
+        cv2.line(img, start_point, end_point, red, 2)
