@@ -78,25 +78,31 @@ class BotMover:
         # Adjust rotation scale based on PID output
         self.previous_rotation_scale = max(1, min(10, self.previous_rotation_scale + output))
     # all movements based on left side goal post
-    def move_to_selected_ball(self, selected_ball):
+    def move_to_selected_ball_in_between(self, selected_ball):
         print('moving to selected ball')
-        location = selected_ball.centroid
+        ball,distance,point_angle = selected_ball
+        location = ball.centroid
+
         dy = location[1] - self.bot_center[1]
         dx = location[0] - self.bot_center[0]
 
         if abs(dy) > 10:  # sets bot and ball in same horizontal line
-        # use pre calculated line equations to shift to favourable angles later
-        # assuming the selected ball is in front of the bot and goal post
-            y_shifted_location = (self.bot_center[0], self.bot_center[1] + dy)
-            self.orient_and_move_to_location(y_shifted_location)
+            self.shift_to_location(location)
         else:
-            self.orient_and_move_to_location(location)
-
+            self.orient_and_move_to_location(location,point_angle)
+    def shift_to_location(self,location):
+        bot_location_angle = self.get_bot_location_angle(self.bot_center,location)
+        # use pre calculated line equations to shift to favourable angles later
+            if dx > 20:
+                shifted_location = (self.bot_center[0], self.bot_center[1] + dy)
+                self.orient_and_move_to_location(shifted_location,bot_location_angle)
+            else:
+                shifted_location = (self.bot_center[0]+15, self.bot_center[1] - dy)
+                self.orient_and_move_to_location(shifted_location)
     # Orient bot to location and move to the location
-    def orient_and_move_to_location(self,location):
+    def orient_and_move_to_location(self,location,bot_location_angle):
         print(f"Moving to location {location}")
         movement_command = 's00'
-        bot_location_angle = self.get_bot_location_angle(self.bot_center,location)
         bot_location_angle, bot_angle = self.adjusted_bot_angle(bot_location_angle)
         angle_differnce =bot_location_angle - bot_angle
         # Rotate the bot to align with the location position

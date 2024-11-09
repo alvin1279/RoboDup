@@ -25,11 +25,12 @@ goal_location = "left"
 near_target = False
 time_started_flag = False
 
-selected_ball, CornerObjs = None, None
+selected_ball, region = None, None
 # blank image for path and objects to be drawn
 start_time = time.time()
 
 def load_frame_data():
+    with open('Datas/final_warped.json', 'r') as json_file:
         json_data = json.load(json_file)
         transformed_left_goal_post = json_data['transformed_left_goal_post']
         transformed_right_goal_post = json_data['transformed_right_goal_post']
@@ -83,12 +84,13 @@ def process_frame(frame, ct, goal_location):
 def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame):
     # initate movement every 1 second
     initiate_movement = time_interval_checker(1)
-    global already_selected_flag, ball_selected_flag, selected_ball, bot_detected, near_target, start, end
+    global already_selected_flag, ball_selected_flag, selected_ball, bot_detected, near_target, start, end,region
 
     if bot_data[0] is None or bot_data[1] is None or bot_data[2] is None:
         bot_detected = False
     else:
         bt.update_bot_data(bot_data)
+        selector.update_zones(bot_data[0], objects)
         tail_centroid, head_centroid, _ = bot_data
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
         DetectBot.drawOrientation(frame, tail_centroid, head_centroid)
@@ -101,7 +103,7 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
             # Select a ball
             tail_centroid, head_centroid, _ = bot_data
             bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
-            selected_ball, CornerObjs = selector.select_ball(objects, bot_center)
+            region, selected_ball = selector.select_ball_non_edge(objects, bot_center)
             if selected_ball is not None:
                 already_selected_flag = True
                 ball_selected_flag = True
@@ -117,7 +119,9 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
         if ball_selected_flag and bot_detected and selected_ball and already_selected_flag:
             # move the bot
             print('initiating movement')
-            bt.move_to_selected_ball(selected_ball.centroid)
+            # selected ball is in front of the bot and goal post
+            if region == 1:
+                bt.move_to_selected_ball_in_between(selected_ball)
             near_target = bt.near_target
         else:
             print('moving to default location')
@@ -158,7 +162,7 @@ def main():
     # Initialise BotMover
     bt = BotMover.BotMover(shape, x_boundaries, y_boundaries, goal_location)
     # Initialize BallSelector
-    selector = BallSelector(x_boundaries, y_boundaries, goal_location)
+    selector = BallSelector(goal_location,shape)
 
     frame_queue = Queue()
     bot_data_queue = Queue()
