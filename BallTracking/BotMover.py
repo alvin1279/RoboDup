@@ -3,6 +3,7 @@ import path_finder as pf
 from collections import deque
 
 line_equation_matrix = []
+# all movements based on left side goal post
 class BotMover:
     def __init__(self, shape,x_boundaries, y_boundaries,goal_location):
         self.shape = shape
@@ -16,6 +17,8 @@ class BotMover:
         self.angle = None
         self.bot_center = None
         self.bot_hemisphere = None
+        self.bot_command = ''
+        self.y_channel_mid_point = None
         # stores bot data after a movement is initiated
         self.predicted_angle = None
         self.predicted_position = None
@@ -33,6 +36,7 @@ class BotMover:
         self.intersection = False
         self.near_target = False
         self.bot_quadrant = None
+        self.y_channel_found = False
 
     def update_bot_data(self, bot_data):
         tail_centroid, head_centroid, angle = bot_data
@@ -77,44 +81,114 @@ class BotMover:
 
         # Adjust rotation scale based on PID output
         self.previous_rotation_scale = max(1, min(10, self.previous_rotation_scale + output))
-    # all movements based on left side goal post
+    
+    def get_path_behind_negative_zone(self,selected_ball,negative_zone_balls):
+        print('moving behind negative zone')
+        ball,distance,point_angle = selected_ball
+        path = []
+        y_channel_mid_point = self.get_y_path_channel(self, negative_zone_balls)
+        self.y_channel_mid_point = y_channel_mid_point
+        path.append(self.bot_center[0], y_channel_mid_point)
+        path.append(self.bot_center[0], ball.centroid[1]+10)
+        return path
+
+    def move_to_location(self, location):
+        print(f"Moving to location {location}")
+        bot_location_angle = self.get_bot_location_angle(self.bot_center,location)
+        angle_differnce =bot_location_angle - self.angle
+        if abs(angle_differnce) > 10:
+            self.orient_and_move_to_location(self,location,bot_location_angle)
+        else:
+            distance = self.get_distance(self.bot_center,location)
+            self.move_forward(distance)
+    def get_y_path_channel(self, all_objects):
+        # Width of the y channel to look for
+        y_channel_width = 10
+        bot_y = self.bot_center[1]
+
+        # Get all y-coordinates of object centroids
+        y_positions = sorted(obj.centroid[1] for obj, _, _ in all_objects)
+
+        # If no objects remain, return bot_y as the only channel available
+        if not y_positions:
+            return bot_y
+
+        # Define bounds based on object positions
+        y_min = 0
+        y_max = max(y_positions)  # No need to check if empty, handled above
+
+        # Initialize variables to track the closest gap
+        closest_gap_distance = float('inf')
+        channel_mid_point = bot_y  # Default to bot's y position if no valid gap is found
+
+        # Loop through sorted y-positions to find gaps
+        for i in range(len(y_positions) - 1):
+            gap_start = y_positions[i]
+            gap_end = y_positions[i + 1]
+            gap_size = gap_end - gap_start
+
+            # Check if the gap is large enough for the required channel width
+            if gap_size >= y_channel_width:
+                # Calculate center of the gap
+                gap_center = (gap_start + gap_end) / 2
+                # Calculate distance from bot_y to gap center
+                gap_distance = abs(gap_center - bot_y)
+
+                # If this gap is closer to the bot than previous gaps, update the closest gap
+                if gap_distance < closest_gap_distance:
+                    closest_gap_distance = gap_distance
+                    channel_mid_point = gap_center
+
+        # If no valid channel was found (channel_mid_point == bot_y) and there are objects left, try again by removing the last object
+        if channel_mid_point == bot_y and len(all_objects) > 1:
+            # Remove the last object and call the method recursively
+            return self.get_y_path_channel(all_objects[:-1])
+
+        # Return the y-coordinate of the midpoint of the closest empty y channel found
+        return int(channel_mid_point)
+
     def move_to_selected_ball_in_between(self, selected_ball):
         print('moving to selected ball')
         ball,distance,point_angle = selected_ball
         location = ball.centroid
 
         dy = location[1] - self.bot_center[1]
-        dx = location[0] - self.bot_center[0]
 
         if abs(dy) > 10:  # sets bot and ball in same horizontal line
-            self.shift_to_location(location)
+            self.shift_to_location(location,dy)
         else:
             self.orient_and_move_to_location(location,point_angle)
-    def shift_to_location(self,location):
+    def shift_to_location(self,location,dy):
         bot_location_angle = self.get_bot_location_angle(self.bot_center,location)
         # use pre calculated line equations to shift to favourable angles later
-            if dx > 20:
-                shifted_location = (self.bot_center[0], self.bot_center[1] + dy)
-                self.orient_and_move_to_location(shifted_location,bot_location_angle)
-            else:
-                shifted_location = (self.bot_center[0]+15, self.bot_center[1] - dy)
-                self.orient_and_move_to_location(shifted_location)
+        dx = location[0] - self.bot_center[0]
+        if dx > 20:
+            shifted_location = (self.bot_center[0], self.bot_center[1] + dy)
+            self.orient_and_move_to_location(shifted_location,bot_location_angle)
+        else:
+            shifted_location = (self.bot_center[0]+15, self.bot_center[1] - dy)
+            self.orient_and_move_to_location(shifted_location)
     # Orient bot to location and move to the location
     def orient_and_move_to_location(self,location,bot_location_angle):
         print(f"Moving to location {location}")
-        movement_command = 's00'
         bot_location_angle, bot_angle = self.adjusted_bot_angle(bot_location_angle)
         angle_differnce =bot_location_angle - bot_angle
         # Rotate the bot to align with the location position
         if abs(angle_differnce) > 10:
-            rotation_direction = self.get_rotation_direction(angle_differnce)
-            # Adjust the scale based on the difference in angle
-            movement_command = rotation_direction + self.decaToHex(self.previous_rotation_scale)
-        # if bot is in same aligment as location go forward
+            self.orient_bot(angle_differnce)
         else:
+            # if bot is in same aligment as location go forward
             # Adjust the scale based on distance
-            movement_command = 'f' + self.decaToHex(self.previous_distance_scale)
-
+            self.move_forward(self.previous_distance_scale)
+    def move_forward(self,distance):
+        print(f"Moving forward {distance}")
+        movement_command = 'f' + self.decaToHex(self.previous_distance_scale)
+        self.bot_command = movement_command
+    def orient_bot(self,angle_differnce):
+        rotation_direction = self.get_rotation_direction(angle_differnce)
+        # Adjust the scale based on the difference in angle
+        movement_command = rotation_direction + self.decaToHex(self.previous_rotation_scale)
+        self.bot_command = movement_command
     def get_rotation_direction(self, angle_differnce):
         if angle_differnce > 0:
             return 'l'

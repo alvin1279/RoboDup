@@ -1,3 +1,5 @@
+import numpy as np
+
 class BallSelector:
     def __init__(self, goal_location, shape, buffer_width=20):
         self.goal_location = goal_location
@@ -15,6 +17,12 @@ class BallSelector:
         # Ball zones based on x positions (relative to bot)
         self.balls_zone_positive_x = []
         self.balls_zone_negative_x = []
+        self.selected_ball = None
+        self.region = 0
+
+        # flags
+        self.already_selected_flag = False
+        self.ball_selected_flag = False
 
     def calculate_angles(self, reference_point, centroids):
         """
@@ -87,3 +95,13 @@ class BallSelector:
             return -1, self.balls_zone_negative_x[0]
         else:
             return 0, None
+    def select_ball_non_edge_positive(self):
+        self.selected_ball = self.balls_zone_positive_x[0]
+        self.already_selected_flag = True
+        self.ball_selected_flag = True
+        self.region = 1
+    def select_ball_non_edge_negative(self):
+        self.selected_ball = self.balls_zone_negative_x[0]
+        self.already_selected_flag = True
+        self.ball_selected_flag = True
+        self.region = -1

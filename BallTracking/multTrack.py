@@ -12,11 +12,11 @@ import DetectBot
 import BotMover
 import VideoProcessor
 
-# temperory start and end points
+# Temporary start and end points
 start = (100, 100)  # Example start point, adjust as per your image
 end = (300, 300) 
 
-# initialising flags
+# Initializing flags
 already_selected_flag = False
 ball_selected_flag = False
 selectedBall = None
@@ -26,7 +26,7 @@ near_target = False
 time_started_flag = False
 
 selected_ball, region = None, None
-# blank image for path and objects to be drawn
+path = []
 start_time = time.time()
 
 def load_frame_data():
@@ -42,16 +42,8 @@ def load_frame_data():
     return transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height
 
 def ask_goal_post():
-    # ask for goal post choice
     goal_post_choice = input("Choose goal post (left/right): ").strip().lower()
-    if goal_post_choice == 'left':
-        goal_location = "left"
-    elif goal_post_choice == 'right':
-        goal_location = "right"
-    else:
-        print("Invalid choice. Defaulting to left goal post.")
-        goal_location = "left"
-    return goal_location
+    return "left" if goal_post_choice != 'right' else "right"
 
 def time_interval_checker(interval):
     global time_started_flag, start_time
@@ -59,33 +51,25 @@ def time_interval_checker(interval):
         start_time = time.time()
         time_started_flag = True
     if time.time() - start_time > interval:
-        print('endtiming')
         time_started_flag = False
         start_time = time.time()
         return True
     return False
 
-def process_frame(frame, ct, goal_location):
-    # apply same width to calibration to avoid warping errors
+def process_frame(frame, ct, goal_location, warp_matrix, width, height):
     frame = imutils.resize(frame, width=900)
-    # Apply the perspective warp to the frame
     frame = cv2.warpPerspective(frame, np.array(warp_matrix), (width, height)) 
-    # Get mask for object detection
     ball_mask = VideoProcessor.get_ball_mask(frame)
-
     bounding_rects = VideoProcessor.get_ball_bounding_rects(ball_mask)
-    # Update the tracker with new centroids
-    objects = ct.update(bounding_rects) # contains ball as objects
-    # find the bot
+    objects = ct.update(bounding_rects)  # Contains ball objects
     bot_data = DetectBot.getBotData(frame)
-
     return objects, bot_data
 
 def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame):
-    # initate movement every 1 second
-    initiate_movement = time_interval_checker(1)
-    global already_selected_flag, ball_selected_flag, selected_ball, bot_detected, near_target, start, end,region
+    global bot_detected, near_target, start, end, path
 
+    initiate_movement = time_interval_checker(1)
+    
     if bot_data[0] is None or bot_data[1] is None or bot_data[2] is None:
         bot_detected = False
     else:
@@ -97,34 +81,34 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
         bot_detected = True
         start = bot_center
 
-    # select a ball
     if initiate_movement:
-        if not already_selected_flag and bot_detected:
-            # Select a ball
-            tail_centroid, head_centroid, _ = bot_data
-            bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
-            region, selected_ball = selector.select_ball_non_edge(objects, bot_center)
-            if selected_ball is not None:
-                already_selected_flag = True
-                ball_selected_flag = True
-                end = selected_ball.centroid
+        if not selector.already_selected_flag and bot_detected:
+            if len(selector.balls_zone_positive_x) > 0:
+                selector.select_ball_non_edge_positive()
+                end = selector.selected_ball.centroid
+            elif len(selector.balls_zone_negative_x) > 0:
+                negative_zone_path = bt.get_path_behind_negative_zone(selector.balls_zone_negative_x[-1],selector.negative_zone)
+                for point in negative_zone_path:
+                    end = point
+                    bot_location_angle = bt.get_bot_location_angle(bot_center, point)
+                    bot_location_angle, bot_angle = bt.adjusted_bot_angle(bot_location_angle)
+                    angle_differnce =bot_location_angle - bot_angle
+                    command = ''
+                    if abs(angle_differnce) > 10:
+                        command += bt.orient_bot(angle_differnce)
+                    command += bt.move_to_location(end)
+                    # send command and wait for it to execute
+                    time.sleep(0.5)
+            # region, selected_ball = selector.select_ball_non_edge(objects, bot_center)
+            # if selected_ball is not None:
         else:
-            # set selected_flag to false if selected_ball is not in objects
-            for obj in objects.values():
-                if obj == selected_ball:
-                    break
-                else:
-                    already_selected_flag = False
+            selector.already_selected_flag = any(obj == selector.selected_ball for obj in objects.values())
 
-        if ball_selected_flag and bot_detected and selected_ball and already_selected_flag:
-            # move the bot
-            print('initiating movement')
-            # selected ball is in front of the bot and goal post
-            if region == 1:
-                bt.move_to_selected_ball_in_between(selected_ball)
+        if selector.ball_selected_flag and bot_detected and selector.selected_ball and selector.already_selected_flag:
+            if selector.region == 1:
+                bt.move_to_selected_ball_in_between(selector.selected_ball)
             near_target = bt.near_target
         else:
-            print('moving to default location')
             if goal_location == 'left':
                 bt.orient_and_move_to_location(shape[0] // 2 + 30, shape[1] // 30)
             else:
@@ -136,33 +120,25 @@ def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_da
     while True:
         if not frame_queue.empty() and not bot_data_queue.empty():
             frame = frame_queue.get()
-            bot_data, objects = bot_data_queue.get()  # Unpack the tuple
+            bot_data, objects = bot_data_queue.get()
             start, end = process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame)
-            path_points = pf.get_paths(cnts, start, end)
-            videoProcessor.draw_path([frame], path_points, start, end)
             cv2.imshow('frame', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
 def main():
     goal_location = ask_goal_post()
-    # load frame data
     transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height = load_frame_data()
 
-    # construct a smaller rectangle inside shape to avoid boundary errors and corners
     x_offset = 5
     y_offset = 5
     x_boundaries = shape[0] + x_offset, shape[0] - x_offset
     y_boundaries = shape[1] + y_offset, shape[1] - y_offset
 
-    # Load video file / camera
     vs = VideoProcessor.load_video_stream('http://192.168.83.138:8080/video')
-    # Initialize centroid tracker
     ct = CentroidTracker()
-    # Initialise BotMover
     bt = BotMover.BotMover(shape, x_boundaries, y_boundaries, goal_location)
-    # Initialize BallSelector
-    selector = BallSelector(goal_location,shape)
+    selector = BallSelector(goal_location, shape)
 
     frame_queue = Queue()
     bot_data_queue = Queue()
@@ -172,32 +148,25 @@ def main():
 
     while True:
         ret, frame = vs.read()
-
         if not ret:
-            break 
-        # Create blank image same as frame
-        blank_image = np.zeros((frame.shape[0], frame.shape[1], 3), np.uint8)
-        
-        # Process frame
-        objects, bot_data = process_frame(frame, ct, goal_location)
+            break
 
-        # draw ball tracking info
+        blank_image = np.zeros((frame.shape[0], frame.shape[1], 3), np.uint8)
+        objects, bot_data = process_frame(frame, ct, goal_location, warp_matrix, width, height)
         VideoProcessor.draw_ball_tracking_info([frame, blank_image], objects)
 
         frame_queue.put(frame)
-        bot_data_queue.put((bot_data, objects))  # Combine bot_data and objects into a tuple
+        bot_data_queue.put((bot_data, objects))
 
         cv2.imshow('blank_image', blank_image)
         cv2.imshow("frame", frame)
-        # reduce number to 1 to go back to normal frame rate
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
-    # Cleanup
     vs.release()
     cv2.destroyAllWindows()
     bot_process.terminate()
+    bot_process.join()
 
 if __name__ == "__main__":
     try:
