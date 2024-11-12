@@ -4,6 +4,7 @@ import imutils
 import json
 import time
 from multiprocessing import Process, Queue
+from queue import Full
 
 from centroidClass import CentroidTracker
 import path_finder as pf
@@ -92,15 +93,13 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
                     end = point
                     bot_location_angle = bt.get_bot_location_angle(bot_center, point)
                     bot_location_angle, bot_angle = bt.adjusted_bot_angle(bot_location_angle)
-                    angle_differnce =bot_location_angle - bot_angle
+                    angle_difference = bot_location_angle - bot_angle
                     command = ''
-                    if abs(angle_differnce) > 10:
-                        command += bt.orient_bot(angle_differnce)
+                    if abs(angle_difference) > 10:
+                        command += bt.orient_bot(angle_difference)
                     command += bt.move_to_location(end)
                     # send command and wait for it to execute
                     time.sleep(0.5)
-            # region, selected_ball = selector.select_ball_non_edge(objects, bot_center)
-            # if selected_ball is not None:
         else:
             selector.already_selected_flag = any(obj == selector.selected_ball for obj in objects.values())
 
@@ -117,14 +116,32 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
     return start, end
 
 def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_data_queue):
-    while True:
-        if not frame_queue.empty() and not bot_data_queue.empty():
-            frame = frame_queue.get()
-            bot_data, objects = bot_data_queue.get()
-            start, end = process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame)
-            cv2.imshow('frame', frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+    try:
+        while True:
+            if not frame_queue.empty() and not bot_data_queue.empty():
+                frame = frame_queue.get()
+                bot_data, objects = bot_data_queue.get()
+                start, end = process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame)
+                cv2.imshow('frame', frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+    except Exception as e:
+        print(f"Error in bot_movement_process: {e}")
+
+class AutoRemovingQueue(Queue):
+    def __init__(self, maxsize=0):
+        super().__init__(maxsize)
+
+    def put(self, item, block=True, timeout=None):
+        while self.full():
+            try:
+                self.get_nowait()
+            except:
+                pass
+        super().put(item, block, timeout)
+
+# Define the maximum size for the queues
+MAX_QUEUE_SIZE = 10
 
 def main():
     goal_location = ask_goal_post()
@@ -140,13 +157,22 @@ def main():
     bt = BotMover.BotMover(shape, x_boundaries, y_boundaries, goal_location)
     selector = BallSelector(goal_location, shape)
 
-    frame_queue = Queue()
-    bot_data_queue = Queue()
+    # Create queues with a maximum size
+    frame_queue = AutoRemovingQueue(maxsize=MAX_QUEUE_SIZE)
+    bot_data_queue = AutoRemovingQueue(maxsize=MAX_QUEUE_SIZE)
 
+    # Start bot movement process
     bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue))
+    bot_process.daemon = True  # Make bot_movement_process a daemon
     bot_process.start()
 
     while True:
+        # Restart bot_movement_process if it crashes
+        if not bot_process.is_alive():
+            print("bot_movement_process encountered an error. Restarting...")
+            bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue))
+            bot_process.start()
+
         ret, frame = vs.read()
         if not ret:
             break
@@ -155,6 +181,7 @@ def main():
         objects, bot_data = process_frame(frame, ct, goal_location, warp_matrix, width, height)
         VideoProcessor.draw_ball_tracking_info([frame, blank_image], objects)
 
+        # Put items in the queue, automatically removing old values if necessary
         frame_queue.put(frame)
         bot_data_queue.put((bot_data, objects))
 
