@@ -38,10 +38,10 @@ def findHeadAndTail(img):
     tail_mask = cv2.dilate(tail_mask, None, iterations=4)
     head_mask = cv2.erode(head_mask, None, iterations=1)
     head_mask = cv2.dilate(head_mask, None, iterations=4)
-    cv2.imshow('Tail Mask', tail_mask)
+    # cv2.imshow('Tail Mask', tail_mask)
     # if cv2.waitKey(0) & 0xFF == ord('q'):
     #     cv2.destroyAllWindows()
-    cv2.imshow('Head Mask', head_mask)
+    # cv2.imshow('Head Mask', head_mask)
     # if cv2.waitKey(0) & 0xFF == ord('q'):
     #     cv2.destroyAllWindows()
     contours_tail, _ = cv2.findContours(tail_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)

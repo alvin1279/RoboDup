@@ -1,7 +1,7 @@
 import json
 import cv2
 import imutils
-
+import hsvMaskUtility as hlpr
 # HSV range for ball mask
 # jasira camera values
 # lower = (22, 36, 218)
@@ -71,8 +71,8 @@ def get_ball_bounding_rects(mask,image):
         bounding_rects.append(cv2.boundingRect(c))
     return bounding_rects
 
-def draw_ball_tracking_info(images=[], objects):
-    for objID,obj in objects:
+def draw_ball_tracking_info(ball_objects, images=None):
+    for obj in ball_objects.values():
         centroid = obj.centroid
         object_vector = obj.vector
         displacement = obj.displacement
@@ -80,7 +80,7 @@ def draw_ball_tracking_info(images=[], objects):
         for img in images:
             draw_ball_datas(img,obj)
 
-def draw_ball_datas(img,objID,obj,speed):
+def draw_ball_datas(img,obj):
     current_speed = 0
     centroid = obj.centroid
     # Get the x and y components of the vector
@@ -89,7 +89,7 @@ def draw_ball_datas(img,objID,obj,speed):
     current_speed = 0
     x,y,w,h = obj.bounding_rectangle
     # Extend arrow endpoint based on angle
-    =   # The movement vector
+    # =   # The movement vector
     scale_factor = 10
     # Extend the line from the centroid using the vector
     xext = int(centroid[0] + vx)
@@ -103,10 +103,10 @@ def draw_ball_datas(img,objID,obj,speed):
     cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
     cv2.arrowedLine(img, centroid, (xext, yext), (0, 255, 0), 2, tipLength=0.2)
     # Display object ID and speed
-    cv2.putText(img, f"ID {objectID} Speed: {speed:.2f} px/sec", 
+    cv2.putText(img, f"ID {obj.objectID} Speed:  px/sec",
                 (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
-def draw_path(images=[], path_points, start, end):
+def draw_path( path_points, start, end, images=None):
 
     start_point = start  # Use the provided start point directly
 

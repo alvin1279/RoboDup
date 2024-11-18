@@ -52,11 +52,15 @@ class BallSelector:
 
         # Extract centroids and calculate distances
         centroids = np.array([obj.centroid for obj in objects.values()])
+
         distances = np.linalg.norm(centroids - bot_centroid, axis=1)
 
+        print(centroids)
+        print(self.x_boundaries)
         # Calculate normalized angles between bot and each object
         angles_deg = self.calculate_angles(bot_centroid, centroids)
 
+        # Determine which objects are in buffer zones near each boundary
         # Determine which objects are in buffer zones near each boundary
         near_left_boundary = centroids[:, 0] <= self.x_boundaries[0] + self.buffer_width
         near_right_boundary = centroids[:, 0] >= self.x_boundaries[1] - self.buffer_width
