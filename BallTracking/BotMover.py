@@ -19,6 +19,8 @@ class BotMover:
         self.bot_hemisphere = None
         self.bot_command = ''
         self.y_channel_mid_point = None
+        self.target = None
+        self.path = deque()
         # stores bot data after a movement is initiated
         self.predicted_angle = None
         self.predicted_position = None
@@ -33,6 +35,7 @@ class BotMover:
         self.previous_angle_error = 0
         self.previous_distance_error = 0
         # flags
+        self.target_reached = False
         self.intersection = False
         self.near_target = False
         self.bot_quadrant = None
@@ -48,40 +51,7 @@ class BotMover:
         
         # Determine the hemisphere of the bot
         self.bot_hemisphere = 'top' if self.bot_center[1] > self.shape[1] // 2 else 'bottom'
-        self.bot_quadrant = self.determine_quadrant(self.bot_center)
-    
-    # Adjust scales with PID if there is previous bot data
-    def predic_movement_updates(self, distance):
-        # Calculate predicted values based on scaling factors
-        predicted_angle = self.normalize_angle(self.angle + (10 * self.previous_rotation_scale))
-
-        predicted_position = (self.bot_center[0] + 10 * self.previous_distance_scale * np.cos(np.radians(predicted_angle)),
-                              self.bot_center[1] + 10 * self.previous_distance_scale * np.sin(np.radians(predicted_angle)))
-        
-        self.predicted_angle = predicted_angle
-        self.predicted_position = predicted_position
-        # self.history.append((predicted_angle, predicted_distance, rotation_scale, distance_scale))
-
-    def adjust_distance_scales_with_pid(self,error):
-        # PID controller logic
-        self.integral += error
-        derivative = error - self.previous_distance_error
-        output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
-        self.previous_distance_error = error
-
-        # Adjust rotation scale based on PID output
-        self.previous_distance_scale = max(1, min(10, self.previous_distance_scale + output))
-
-    def adjust_angle_scales_with_pid(self, error):
-        # PID controller logic
-        self.integral += error
-        derivative = error - self.previous_angle_error
-        output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
-        self.previous_angle_error = error
-
-        # Adjust rotation scale based on PID output
-        self.previous_rotation_scale = max(1, min(10, self.previous_rotation_scale + output))
-    
+        self.bot_quadrant = self.determine_quadrant(self.angle)   
     def get_path_behind_negative_zone(self,selected_ball,negative_zone_balls):
         print('moving behind negative zone')
         ball,distance,point_angle = selected_ball
@@ -92,15 +62,6 @@ class BotMover:
         path.append(self.bot_center[0], ball.centroid[1]+10)
         return path
 
-    def move_to_location(self, location):
-        print(f"Moving to location {location}")
-        bot_location_angle = self.get_bot_location_angle(self.bot_center,location)
-        angle_differnce =bot_location_angle - self.angle
-        if abs(angle_differnce) > 10:
-            self.orient_and_move_to_location(self,location,bot_location_angle)
-        else:
-            distance = self.get_distance(self.bot_center,location)
-            self.move_forward(distance)
     def get_y_path_channel(self, all_objects):
         # Width of the y channel to look for
         y_channel_width = 10
@@ -147,42 +108,26 @@ class BotMover:
         # Return the y-coordinate of the midpoint of the closest empty y channel found
         return int(channel_mid_point)
 
-    def move_to_selected_ball_in_between(self, selected_ball):
-        print('moving to selected ball')
-        ball,distance,point_angle = selected_ball
-        location = ball.centroid
-
-        dy = location[1] - self.bot_center[1]
-
-        if abs(dy) > 10:  # sets bot and ball in same horizontal line
-            self.shift_to_location(location,dy)
-        else:
-            self.orient_and_move_to_location(location,point_angle)
-    def shift_to_location(self,location,dy):
-        bot_location_angle = self.get_bot_location_angle(self.bot_center,location)
+    def get_shifted_location(self,location):
         # use pre calculated line equations to shift to favourable angles later
-        dx = location[0] - self.bot_center[0]
-        if dx > 20:
-            shifted_location = (self.bot_center[0], self.bot_center[1] + dy)
-            self.orient_and_move_to_location(shifted_location,bot_location_angle)
-        else:
-            shifted_location = (self.bot_center[0]+15, self.bot_center[1] - dy)
-            self.orient_and_move_to_location(shifted_location)
-    # Orient bot to location and move to the location
-    def orient_and_move_to_location(self,location,bot_location_angle):
-        print(f"Moving to location {location}")
-        bot_location_angle, bot_angle = self.adjusted_bot_angle(bot_location_angle)
-        angle_differnce =bot_location_angle - bot_angle
-        # Rotate the bot to align with the location position
+        # 10 pixel is 2 cm
+        return (location[0]+ 60, location[1])
+
+    def move_to_location(self,location):
+        bot_location_angle = self.get_bot_location_angle(location)
+        adjusted_bot_angle, bot_angle = self.adjusted_bot_angle(bot_location_angle)
+        angle_differnce = adjusted_bot_angle - bot_angle
         if abs(angle_differnce) > 10:
-            self.orient_bot(angle_differnce)
+            direction = self.get_rotation_direction(angle_differnce)
+            self.command = direction + self.decaToHex(self.previous_rotation_scale)
         else:
-            # if bot is in same aligment as location go forward
-            # Adjust the scale based on distance
-            self.move_forward(self.previous_distance_scale)
-    def move_forward(self,distance):
-        print(f"Moving forward {distance}")
-        movement_command = 'f' + self.decaToHex(self.previous_distance_scale)
+            # distance = self.get_distance(self.bot_center,location)
+            self.move_forward(distance)
+        print('command',self.command)
+    # Orient bot to location and move to the location
+    def move_forward(self):
+        # print(f"Moving forward {distance}")
+        movement_command = 'f' + 'f'
         self.bot_command = movement_command
     def orient_bot(self,angle_differnce):
         rotation_direction = self.get_rotation_direction(angle_differnce)
@@ -191,9 +136,9 @@ class BotMover:
         self.bot_command = movement_command
     def get_rotation_direction(self, angle_differnce):
         if angle_differnce > 0:
-            return 'l'
+            return 'r'
         else: 
-            return 'r'     
+            return 'l'     
     # shifting by 90 degrees to avoid 360 to 1 flipping
     def adjusted_bot_angle(self, bot_location_angle):
         location_quadrant = self.determine_quadrant(bot_location_angle)

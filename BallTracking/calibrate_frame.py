@@ -92,7 +92,7 @@ def draw_lines_rectangle(img, points):
 
 # Open the video file
 video_path = 'Samples/field_1.mp4'  # Change to your video file path
-cap = cv2.VideoCapture('http://192.168.83.138:4747/video')
+cap = cv2.VideoCapture('Samples/rec1.mp4')
 
 # cap = cv2.VideoCapture(video_path)
 file_path='Samples/resized_rotated_frame.png'
@@ -103,6 +103,8 @@ if not cap.isOpened():
 else:
     # Read a single frame
     ret, frame = cap.read()  # ret is a boolean indicating success
+    frame = imutils.resize(frame, width=900)
+
     if ret:
         captured_frame = frame
         cv2.imshow('Captured Frame', captured_frame)

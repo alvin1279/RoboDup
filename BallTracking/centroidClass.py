@@ -31,11 +31,11 @@ class CentroidTracker:
         inputCentroids = np.zeros((len(rects), 2), dtype="int")
         bounding_rectangles = []
 
-        for (i, (startX, startY, endX, endY)) in enumerate(rects):
-            cX = int((startX + endX) / 2.0)
-            cY = int((startY + endY) / 2.0)
+        for (i, (startX, startY, width, hight)) in enumerate(rects):
+            cX = int(startX + width/2)
+            cY = int(startY + hight/2)
             inputCentroids[i] = (cX, cY)
-            bounding_rectangles.append((startX, startY, endX, endY))
+            bounding_rectangles.append((startX, startY, width, hight))
 
         if len(self.objects) == 0:
             for i in range(0, len(inputCentroids)):

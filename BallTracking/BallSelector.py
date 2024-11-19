@@ -105,3 +105,11 @@ class BallSelector:
         self.already_selected_flag = True
         self.ball_selected_flag = True
         self.region = -1
+    # method to check if selected object is in still in the zone
+    # if not reset flags
+    def check_selected_ball(self,objects):
+        if self.selected_ball[0] not in objects.values():
+            self.already_selected_flag = False
+            self.ball_selected_flag = False
+            self.selected_ball = None
+            self.region = 0
