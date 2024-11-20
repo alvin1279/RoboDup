@@ -68,13 +68,18 @@ def process_frame(frame, ct, goal_location, warp_matrix, width, height):
     bot_data = DetectBot.getBotData(frame)
     return objects, bot_data, frame
 
-def get_path(selector, bt):
+def select_ball_and_set_path(selector, bt):
     path = deque()  # Initialize path as a deque (stack-like behavior)
+    # print(len(selector.balls_zone_positive_x))
     if len(selector.balls_zone_positive_x) > 0:
+        print('selecting positive ball')
         selector.select_ball_non_edge_positive()
-        point = bt.get_shifted_location(selector.selected_ball[0].centroid)
+        point = bt.get_shifted_location(selector.selected_ball.centroid)
         path.append(point)  # Append to the end of the deque
-        path.append(selector.selected_ball[0].centroid)
+        path.append(selector.selected_ball.centroid)
+    elif len(selector.balls_zone_negative_x) > 0:
+        print('selecting negative path')
+        path = bt.get_path_behind_negative_zone(selector.balls_zone_negative_x)
     bt.path = path
         
 
@@ -84,33 +89,37 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
     initiate_movement = time_interval_checker(1)
     
     if bot_data[0] is None or bot_data[1] is None or bot_data[2] is None:
-        bot_detected = False
+        print("Bot not detected. Waiting for bot detection...")
     else:
-        bot_detected = True
         bt.update_bot_data(bot_data)
         selector.update_zones(bot_data[0], objects)
         tail_centroid, head_centroid, _ = bot_data
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
         start = bot_center
+        if not selector.already_selected_flag:
+            select_ball_and_set_path(selector,bt)
+
         if selector.ball_selected_flag:
-            selector.check_selected_ball(objects)
-            # bt.move_to_selected_ball_in_between(selector.selected_ball[0])
-        else:
+            if not selector.check_ball_still_exist(objects):
+                print ("Ball not found. Resetting flags...")
+                return
             if len(bt.path) > 0:
-                distance = 100
-                if bt.target_reached or bt.target is None:
-                    bt.target = bt.path.popleft()
-                    distance = np.linalg.norm(np.array(bot_center) - np.array(bt.target))
+                if bt.current_target is None or bt.target_reached:
+                    bt.current_target = bt.path.popleft()
+                distance = np.linalg.norm(np.array(bot_center) - np.array(bt.current_target))
                 if distance < 30:
                     bt.target_reached = True
-                if not bt.target_reached:
-                    bt.move_to_location(bt.target)
-                    
-            elif not bt.target_reached and len(bt.path) == 0:
-                get_path(selector,bt)
-                bt.target_reached = False
+                    bt.current_target = None
+                else:
+                    bt.move_to_location(bt.current_target)
+            else:
+                bt.target_reached = True
+                bt.current_target = None
+        else:
+            # initiate random movement here
+            pass
 
-def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_data_queue):
+def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_data_queue, path_queue):
     try:
         print("core 3 method called")
         while True:
@@ -120,12 +129,21 @@ def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_da
             frame = frame_queue.get()
             bot_data, objects = bot_data_queue.get()
             process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame)
+
+            # Send path to the queue
+            if not path_queue.full():
+                if len(bt.path) > 0:
+                    path = bt.path.copy()
+                    if bt.current_target is not None:
+                        path.appendleft(bt.current_target)
+                    path.appendleft(bt.bot_center)
+                    path_queue.put(list(path))  # Convert deque to list for safe sharing
     except Exception as e:
         print(f"Error in bot_movement_process: {e}")
         traceback.print_exc()
     finally:
         cv2.destroyAllWindows()  # Ensure all windows are closed properly
-def draw_tracked_frame(frame_queue, bot_data_queue):
+def draw_tracked_frame(frame_queue, bot_data_queue,path_queue):
     try:
         print("core 2 draw method called")
         while True:
@@ -137,6 +155,13 @@ def draw_tracked_frame(frame_queue, bot_data_queue):
             tail_centroid, head_centroid, _ = bot_data
             VideoProcessor.draw_ball_tracking_info(frame, objects)
             DetectBot.drawOrientation(frame, tail_centroid, head_centroid)
+
+             # Draw the path if available
+            if not path_queue.empty():
+                path = path_queue.get()
+                for i in range(len(path) - 1):
+                    cv2.line(frame, path[i], path[i + 1], (0, 255, 255), 2)  # Green line for path
+
             cv2.imshow('drawn frame', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -159,10 +184,12 @@ def main():
 
     frame_queue = Queue()
     bot_data_queue = Queue()
-    draw_tracked_frame_process = Process(target=draw_tracked_frame, args=(frame_queue, bot_data_queue))
+    path_queue = Queue()  # New queue for path data
+
+    draw_tracked_frame_process = Process(target=draw_tracked_frame, args=(frame_queue, bot_data_queue,path_queue))
     draw_tracked_frame_process.daemon = True
     draw_tracked_frame_process.start()
-    bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue))
+    bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue, path_queue))
     bot_process.daemon = True
     bot_process.start()
 
@@ -172,7 +199,7 @@ def main():
                 print("bot_movement_process encountered an error. Restarting...")
                 bot_process.terminate()
                 bot_process.join()
-                bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue))
+                bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue,path_queue))
                 bot_process.start()
 
             ret, frame = vs.read()

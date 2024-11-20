@@ -19,7 +19,7 @@ class BotMover:
         self.bot_hemisphere = None
         self.bot_command = ''
         self.y_channel_mid_point = None
-        self.target = None
+        self.current_target = None
         self.path = deque()
         # stores bot data after a movement is initiated
         self.predicted_angle = None
@@ -52,14 +52,13 @@ class BotMover:
         # Determine the hemisphere of the bot
         self.bot_hemisphere = 'top' if self.bot_center[1] > self.shape[1] // 2 else 'bottom'
         self.bot_quadrant = self.determine_quadrant(self.angle)   
-    def get_path_behind_negative_zone(self,selected_ball,negative_zone_balls):
-        print('moving behind negative zone')
-        ball,distance,point_angle = selected_ball
-        path = []
-        y_channel_mid_point = self.get_y_path_channel(self, negative_zone_balls)
+    def get_path_behind_negative_zone(self,negative_zone_balls):
+        path = deque()  # Initialize path as a deque (stack-like behavior)
+        y_channel_mid_point = self.get_y_path_channel(negative_zone_balls)
         self.y_channel_mid_point = y_channel_mid_point
-        path.append(self.bot_center[0], y_channel_mid_point)
-        path.append(self.bot_center[0], ball.centroid[1]+10)
+        path.append((self.bot_center[0], y_channel_mid_point))
+        ball = negative_zone_balls[-1]
+        path.append((self.bot_center[0], ball.centroid[1]+30))
         return path
 
     def get_y_path_channel(self, all_objects):
@@ -68,7 +67,7 @@ class BotMover:
         bot_y = self.bot_center[1]
 
         # Get all y-coordinates of object centroids
-        y_positions = sorted(obj.centroid[1] for obj, _, _ in all_objects)
+        y_positions = sorted(obj.centroid[1] for obj in all_objects)
 
         # If no objects remain, return bot_y as the only channel available
         if not y_positions:
