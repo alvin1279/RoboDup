@@ -26,7 +26,7 @@ class BotMover:
         # stores bot data after a movement is initiated
         self.predicted_angle = None
         self.predicted_position = None
-        self.previous_rotation_scale = 1
+        self.previous_rotation_scale = 3
         self.previous_distance_scale = 2
         self.history = deque(maxlen=10)  # Adjust maxlen as needed
         # PID controller parameters
@@ -43,13 +43,6 @@ class BotMover:
         self.bot_quadrant = None
         self.y_channel_found = False
         self.ws = None
-    # Function to send the command via WebSocket
-    def start_websocket(self):
-        self.ws = websocket.WebSocket()
-        bot_ip = "ws://192.168.83.196:81"  # Replace with your bot's IP address
-        self.ws.connect(bot_ip)
-    def close_websocket(self):
-        self.ws.close()
     def send_command(self,command):
         # Connect to the WebSocket server on the bot
 
@@ -137,16 +130,15 @@ class BotMover:
         angle_differnce = adjusted_bot_angle - bot_angle
         if abs(angle_differnce) > 10:
             direction = self.get_rotation_direction(angle_differnce)
-            self.command = direction + self.decaToHex(self.previous_rotation_scale)
+            self.bot_command = direction + self.decaToHex(self.previous_rotation_scale)
         else:
             # distance = self.get_distance(self.bot_center,location)
-            self.move_forward(distance)
-        print('command',self.command)
-        self.send_command(self.command)
+            self.move_forward()
+        print('command',self.bot_command)
     # Orient bot to location and move to the location
     def move_forward(self):
         # print(f"Moving forward {distance}")
-        movement_command = 'f' + 'f'
+        movement_command = 'f' + '3'
         self.bot_command = movement_command
     def orient_bot(self,angle_differnce):
         rotation_direction = self.get_rotation_direction(angle_differnce)

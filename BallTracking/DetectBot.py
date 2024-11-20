@@ -94,10 +94,10 @@ def findHeadAndTail(img):
 def findOrientation(tail_centroid, head_centroid):
     # Calculate orientation of the pattern using the centroid
     # Get the centroid of the largest area contour
-    cX, cY = tail_centroid
+    cX, cY = head_centroid
     # get average angle from all other centroids to the centroid of the largest area contour
     angles = []
-    x, y = head_centroid
+    x, y = tail_centroid
     angle = np.arctan2(cY - y, cX - x) * 180 / np.pi
     angles.append(angle)
     avg_angle = np.mean(angles)

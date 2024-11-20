@@ -4,6 +4,7 @@ import imutils
 import json
 import time
 import traceback
+import websocket
 
 from multiprocessing import Process, Queue, Event
 from collections import deque
@@ -83,7 +84,7 @@ def select_ball_and_set_path(selector, bt):
     bt.path = path
         
 
-def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame):
+def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame,ws):
     global bot_detected, near_target, start, end, path
 
     initiate_movement = time_interval_checker(1)
@@ -107,11 +108,13 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
                 if bt.current_target is None or bt.target_reached:
                     bt.current_target = bt.path.popleft()
                 distance = np.linalg.norm(np.array(bot_center) - np.array(bt.current_target))
-                if distance < 30:
+                if distance < 3:
                     bt.target_reached = True
+                    print("target reached")
                     bt.current_target = None
                 else:
                     bt.move_to_location(bt.current_target)
+                    ws.send(bt.bot_command)
             else:
                 bt.target_reached = True
                 bt.current_target = None
@@ -119,7 +122,7 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
             # initiate random movement here
             pass
 
-def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_data_queue, path_queue):
+def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_data_queue, path_queue,ws):
     try:
         print("core 3 method called")
         while True:
@@ -128,7 +131,7 @@ def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_da
                 continue  # Wait and keep looping without exiting
             frame = frame_queue.get()
             bot_data, objects = bot_data_queue.get()
-            process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame)
+            process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame,ws)
 
             # Send path to the queue
             if not path_queue.full():
@@ -175,12 +178,18 @@ MAX_QUEUE_SIZE = 10
 def main():
     global frame_counter
     goal_location = ask_goal_post()
+    bot_ip = "ws://192.168.57.196:81"  # Replace with your bot's IP address
+
+    # jasira Ip: 192.168.104.196:81
+    # hashar: 192.168.78.196:81
+    ws = websocket.WebSocket()
+    ws.connect(bot_ip)
+    # ws = 2
     transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height = load_frame_data()
 
-    vs = VideoProcessor.load_video_stream('Samples/rec1.mp4')
+    vs = VideoProcessor.load_video_stream('http://localhost:4747/video')
     ct = CentroidTracker()
     bt = BotMover.BotMover(shape, (shape[0] + 5, shape[0] - 5), (shape[1] + 5, shape[1] - 5), goal_location)
-    bt.start_websocket()
     selector = BallSelector(goal_location, shape)
 
     frame_queue = Queue()
@@ -190,7 +199,7 @@ def main():
     draw_tracked_frame_process = Process(target=draw_tracked_frame, args=(frame_queue, bot_data_queue,path_queue))
     draw_tracked_frame_process.daemon = True
     draw_tracked_frame_process.start()
-    bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue, path_queue))
+    bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue, path_queue,ws))
     bot_process.daemon = True
     bot_process.start()
 
@@ -200,7 +209,7 @@ def main():
                 print("bot_movement_process encountered an error. Restarting...")
                 bot_process.terminate()
                 bot_process.join()
-                bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue,path_queue))
+                bot_process = Process(target=bot_movement_process, args=(bt, selector, shape, goal_location, frame_queue, bot_data_queue,path_queue,ws))
                 bot_process.start()
 
             ret, frame = vs.read()
@@ -214,7 +223,6 @@ def main():
         print("Exiting...")
     finally:
         vs.release()
-        bt.close_websocket()
         draw_tracked_frame_process.terminate()
         bot_process.terminate()
         draw_tracked_frame_process.join()
