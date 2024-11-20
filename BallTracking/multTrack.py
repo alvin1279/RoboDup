@@ -213,6 +213,7 @@ def main():
         print("Exiting...")
     finally:
         vs.release()
+        bt.close_connection()
         draw_tracked_frame_process.terminate()
         bot_process.terminate()
         draw_tracked_frame_process.join()

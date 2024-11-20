@@ -42,20 +42,20 @@ class BotMover:
         self.near_target = False
         self.bot_quadrant = None
         self.y_channel_found = False
+        self.ws = websocket.WebSocket()
+        bot_ip = "ws://192.168.83.196:81"  # Replace with your bot's IP address
+        ws.connect(bot_ip)
     # Function to send the command via WebSocket
     def send_command(self,command):
         # Connect to the WebSocket server on the bot
-        ws = websocket.WebSocket()
-        bot_ip = "ws://192.168.83.196:81"  # Replace with your bot's IP address
-        ws.connect(bot_ip)
 
         # Send the command to the bot
         print(f"Sending command: {command}")
-        ws.send(command)
+        self.ws.send(command)
 
         # Close the WebSocket connection
-        ws.close()
-
+    def close_connection(self):
+        self.ws.close()
     def update_bot_data(self, bot_data):
         tail_centroid, head_centroid, angle = bot_data
         self.bot_data = bot_data
