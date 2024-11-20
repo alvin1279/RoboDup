@@ -180,6 +180,7 @@ def main():
     vs = VideoProcessor.load_video_stream('Samples/rec1.mp4')
     ct = CentroidTracker()
     bt = BotMover.BotMover(shape, (shape[0] + 5, shape[0] - 5), (shape[1] + 5, shape[1] - 5), goal_location)
+    bt.start_websocket()
     selector = BallSelector(goal_location, shape)
 
     frame_queue = Queue()
@@ -213,7 +214,7 @@ def main():
         print("Exiting...")
     finally:
         vs.release()
-        bt.close_connection()
+        bt.close_websocket()
         draw_tracked_frame_process.terminate()
         bot_process.terminate()
         draw_tracked_frame_process.join()
