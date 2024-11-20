@@ -1,6 +1,8 @@
 import numpy as np
 import path_finder as pf
 from collections import deque
+import websocket
+
 
 line_equation_matrix = []
 # all movements based on left side goal post
@@ -40,6 +42,19 @@ class BotMover:
         self.near_target = False
         self.bot_quadrant = None
         self.y_channel_found = False
+    # Function to send the command via WebSocket
+    def send_command(self,command):
+        # Connect to the WebSocket server on the bot
+        ws = websocket.WebSocket()
+        bot_ip = "ws://192.168.83.196:81"  # Replace with your bot's IP address
+        ws.connect(bot_ip)
+
+        # Send the command to the bot
+        print(f"Sending command: {command}")
+        ws.send(command)
+
+        # Close the WebSocket connection
+        ws.close()
 
     def update_bot_data(self, bot_data):
         tail_centroid, head_centroid, angle = bot_data
@@ -123,6 +138,7 @@ class BotMover:
             # distance = self.get_distance(self.bot_center,location)
             self.move_forward(distance)
         print('command',self.command)
+        self.send_command(self.command)
     # Orient bot to location and move to the location
     def move_forward(self):
         # print(f"Moving forward {distance}")
