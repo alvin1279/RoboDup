@@ -1,6 +1,6 @@
 # RoboSoccer
 
-Team SixthSense
+Team SixthSense v2.0
 
 
 
