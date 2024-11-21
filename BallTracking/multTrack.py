@@ -70,20 +70,18 @@ def process_frame(frame, ct, goal_location, warp_matrix, width, height):
     return objects, bot_data, frame
 
 def select_ball_and_set_path(selector, bt):
-    path = deque()  # Initialize path as a deque (stack-like behavior)
-    # print(len(selector.balls_zone_positive_x))
     if len(selector.balls_zone_positive_x) > 0:
         print('selecting positive ball')
         selector.select_ball_non_edge_positive()
         point = bt.get_shifted_location(selector.selected_ball.centroid)
-        path.append(point)  # Append to the end of the deque
-        path.append(selector.selected_ball.centroid)
+        bt.path['intermediate'] = point
+        bt.path['final'] = (selector.selected_ball.centroid)
     elif len(selector.balls_zone_negative_x) > 0:
         print('selecting negative path')
-        path = bt.get_path_behind_negative_zone(selector.balls_zone_negative_x)
-    bt.path = path
+        y_channel_mid_point = bt.get_y_channel_midpoint(selector.balls_zone_negative_x)
+        bt.path['intermediate'] = (bt.bot_center[0], y_channel_mid_point)
+        bt.path['final'] = (selector.balls_zone_negative_x[-1].centroid[0]+60,y_channel_mid_point)
         
-
 def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame,ws):
     global bot_detected, near_target, start, end, path
 
@@ -93,6 +91,13 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
         print("Bot not detected. Waiting for bot detection...")
     else:
         bt.update_bot_data(bot_data)
+        if bt.bot_near_boundary:
+            print("Bot near boundary. Resetting flags...")
+            selector.reset_flags()
+            bt.reset_flags()
+            ws.send('s02')
+            # do random stuff here with 10s delay added
+            return
         selector.update_zones(bot_data[0], objects)
         tail_centroid, head_centroid, _ = bot_data
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
@@ -103,21 +108,30 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
         if selector.ball_selected_flag:
             if not selector.check_ball_still_exist(objects):
                 print ("Ball not found. Resetting flags...")
+                selector.reset_flags()
+                bt.reset_flags()
                 return
-            if len(bt.path) > 0:
-                if bt.current_target is None or bt.target_reached:
-                    bt.current_target = bt.path.popleft()
-                distance = np.linalg.norm(np.array(bot_center) - np.array(bt.current_target))
-                if distance < 3:
-                    bt.target_reached = True
-                    print("target reached")
-                    bt.current_target = None
-                else:
-                    bt.move_to_location(bt.current_target)
-                    ws.send(bt.bot_command)
             else:
-                bt.target_reached = True
-                bt.current_target = None
+                # checking if path exist
+                if bt.path['intermediate'] is not None:
+                    bt.current_target = 'intermediate'
+                elif bt.path['final'] is not None:
+                    bt.current_target = 'final'
+                else :
+                    bt.current_target = None
+                    # reset everything if no path exist
+                    selector.reset_flags()
+                    bt.reset_flags()
+
+                
+                if bt.current_target is not None:
+                    current_target_location = bt.path[bt.current_target]
+                    distance  = np.sqrt((bt.bot_center[0] - current_target_location[0])**2 + (bt.bot_center[1] - current_target_location[1])**2)
+                    if distance < 10:
+                        bt.path[bt.current_target] = None
+                    else:
+                        bt.move_to_location(current_target_location)
+                        ws.send(bt.bot_command)
         else:
             # initiate random movement here
             pass
@@ -135,12 +149,13 @@ def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_da
 
             # Send path to the queue
             if not path_queue.full():
-                if len(bt.path) > 0:
-                    path = bt.path.copy()
-                    if bt.current_target is not None:
-                        path.appendleft(bt.current_target)
-                    path.appendleft(bt.bot_center)
-                    path_queue.put(list(path))  # Convert deque to list for safe sharing
+                path = []
+                path.append(bt.bot_center)
+                if bt.path['intermediate'] is not None:
+                    path.append(bt.path['intermediate'])                    
+                if bt.path['final'] is not None:
+                    path.append(bt.path['final'])
+                path_queue.put(path)
     except Exception as e:
         print(f"Error in bot_movement_process: {e}")
         traceback.print_exc()
@@ -180,14 +195,15 @@ def main():
     goal_location = ask_goal_post()
     bot_ip = "ws://192.168.57.196:81"  # Replace with your bot's IP address
 
-    # jasira Ip: 192.168.104.196:81
-    # hashar: 192.168.78.196:81
+    # # jasira Ip: 192.168.104.196:81
+    # # hashar: 192.168.78.196:81
     ws = websocket.WebSocket()
     ws.connect(bot_ip)
     # ws = 2
     transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height = load_frame_data()
 
     vs = VideoProcessor.load_video_stream('http://localhost:4747/video')
+    # vs = VideoProcessor.load_video_stream('Samples/rec1.mp4')
     ct = CentroidTracker()
     bt = BotMover.BotMover(shape, (shape[0] + 5, shape[0] - 5), (shape[1] + 5, shape[1] - 5), goal_location)
     selector = BallSelector(goal_location, shape)

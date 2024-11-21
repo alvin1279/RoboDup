@@ -21,38 +21,20 @@ class BotMover:
         self.bot_hemisphere = None
         self.bot_command = ''
         self.y_channel_mid_point = None
+
         self.current_target = None
-        self.path = deque()
-        # stores bot data after a movement is initiated
-        self.predicted_angle = None
-        self.predicted_position = None
+        self.path = {'intermediate':None,'final':None}
+
         self.previous_rotation_scale = 3
         self.previous_distance_scale = 2
-        self.history = deque(maxlen=10)  # Adjust maxlen as needed
-        # PID controller parameters
-        self.Kp = 1.0
-        self.Ki = 0.1
-        self.Kd = 0.05
-        self.integral = 0
-        self.previous_angle_error = 0
-        self.previous_distance_error = 0
         # flags
         self.target_reached = False
         self.intersection = False
         self.near_target = False
         self.bot_quadrant = None
         self.y_channel_found = False
-        self.ws = None
-    def send_command(self,command):
-        # Connect to the WebSocket server on the bot
+        self.bot_near_boundary = False
 
-        # Send the command to the bot
-        print(f"Sending command: {command}")
-        self.ws.send(command)
-
-        # Close the WebSocket connection
-    def close_connection(self):
-        self.ws.close()
     def update_bot_data(self, bot_data):
         tail_centroid, head_centroid, angle = bot_data
         self.bot_data = bot_data
@@ -63,34 +45,36 @@ class BotMover:
         
         # Determine the hemisphere of the bot
         self.bot_hemisphere = 'top' if self.bot_center[1] > self.shape[1] // 2 else 'bottom'
-        self.bot_quadrant = self.determine_quadrant(self.angle)   
-    def get_path_behind_negative_zone(self,negative_zone_balls):
-        path = deque()  # Initialize path as a deque (stack-like behavior)
-        y_channel_mid_point = self.get_y_path_channel(negative_zone_balls)
-        self.y_channel_mid_point = y_channel_mid_point
-        path.append((self.bot_center[0], y_channel_mid_point))
-        ball = negative_zone_balls[-1]
-        path.append((self.bot_center[0], ball.centroid[1]+30))
-        return path
+        self.bot_quadrant = self.determine_quadrant(self.angle)
+        self.bot_near_boundary = self.near_boundary()
+    # method to check if bot is 10 near any of the boundaries
+    def near_boundary(self):
+        return self.bot_center[0] <= self.x_boundaries[0] + 10 or self.bot_center[0] >= self.x_boundaries[1] - 10 or self.bot_center[1] <= self.y_boundaries[0] + 10 or self.bot_center[1] >= self.y_boundaries[1] - 10
 
-    def get_y_path_channel(self, all_objects):
+
+    def reset_flags(self):
+        self.target_reached = False
+        self.intersection = False
+        self.near_target = False
+        self.y_channel_found = False
+        self.path = {'intermediate':None,'final':None}
+
+    def get_y_channel_midpoint(self, all_objects):
         # Width of the y channel to look for
         y_channel_width = 10
         bot_y = self.bot_center[1]
 
+        # Extract image height from the shape
+        image_height = self.shape[0]
+
         # Get all y-coordinates of object centroids
         y_positions = sorted(obj.centroid[1] for obj in all_objects)
 
-        # If no objects remain, return bot_y as the only channel available
-        if not y_positions:
-            return bot_y
+        # Include image boundaries (0 and image height) as additional points
+        y_positions = [0] + y_positions + [image_height]
 
-        # Define bounds based on object positions
-        y_min = 0
-        y_max = max(y_positions)  # No need to check if empty, handled above
-
-        # Initialize variables to track the closest gap
-        closest_gap_distance = float('inf')
+        # Initialize variables to track the largest gap
+        largest_gap_size = 0
         channel_mid_point = bot_y  # Default to bot's y position if no valid gap is found
 
         # Loop through sorted y-positions to find gaps
@@ -103,20 +87,13 @@ class BotMover:
             if gap_size >= y_channel_width:
                 # Calculate center of the gap
                 gap_center = (gap_start + gap_end) / 2
-                # Calculate distance from bot_y to gap center
-                gap_distance = abs(gap_center - bot_y)
 
-                # If this gap is closer to the bot than previous gaps, update the closest gap
-                if gap_distance < closest_gap_distance:
-                    closest_gap_distance = gap_distance
+                # If this gap is larger than previous gaps, update the largest gap
+                if gap_size > largest_gap_size:
+                    largest_gap_size = gap_size
                     channel_mid_point = gap_center
 
-        # If no valid channel was found (channel_mid_point == bot_y) and there are objects left, try again by removing the last object
-        if channel_mid_point == bot_y and len(all_objects) > 1:
-            # Remove the last object and call the method recursively
-            return self.get_y_path_channel(all_objects[:-1])
-
-        # Return the y-coordinate of the midpoint of the closest empty y channel found
+        # Return the y-coordinate of the midpoint of the largest empty y channel found
         return int(channel_mid_point)
 
     def get_shifted_location(self,location):
@@ -138,12 +115,9 @@ class BotMover:
     # Orient bot to location and move to the location
     def move_forward(self):
         # print(f"Moving forward {distance}")
-        movement_command = 'f' + '3'
-        self.bot_command = movement_command
-    def orient_bot(self,angle_differnce):
-        rotation_direction = self.get_rotation_direction(angle_differnce)
-        # Adjust the scale based on the difference in angle
-        movement_command = rotation_direction + self.decaToHex(self.previous_rotation_scale)
+        movement_command = 'f' + '03'
+        if self.current_target == 'final':
+            movement_command = 'F' + '0f'
         self.bot_command = movement_command
     def get_rotation_direction(self, angle_differnce):
         if angle_differnce > 0:
