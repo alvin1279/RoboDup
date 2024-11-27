@@ -76,13 +76,14 @@ def select_ball_and_set_path(selector, bt):
         point = bt.get_shifted_location(selector.selected_ball.centroid)
         bt.path['intermediate'] = point
         bt.path['final'] = (selector.selected_ball.centroid)
-
+        bt.orient = True
     elif len(selector.balls_zone_negative_x) > 0:
         print('selecting negative path')
         selector.select_ball_non_edge_negative()
         y_channel_mid_point = bt.get_y_channel_midpoint(selector.balls_zone_negative_x)
         bt.path['intermediate'] = (bt.bot_center[0], y_channel_mid_point)
         bt.path['final'] = (selector.balls_zone_negative_x[-1].centroid[0]+60,y_channel_mid_point)
+        bt.orient = True
 
 def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame,ws):
     global bot_detected, near_target, start, end, path
@@ -119,37 +120,46 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
                 selector.reset_flags()
                 bt.reset_flags()
                 return
-            else:
+            else:   
                 # checking if path exist
-                print(bt.path)
-                if bt.path['intermediate'] is not None:
-                    print('selecting Intermediate')
-                    bt.current_target = 'intermediate'
-                elif bt.path['final'] is not None:
-                    bt.current_target = 'final'
-                    print('selecting final')
-                else :
-                    bt.current_target = None
-                    # reset everything if no path exist
-                    selector.reset_flags()
-                    bt.reset_flags()
-
-                
-                if bt.current_target is not None:
-                    current_target_location = bt.path[bt.current_target]
-                    distance  = np.sqrt((bt.bot_center[0] - current_target_location[0])**2 + (bt.bot_center[1] - current_target_location[1])**2)
-                    print(distance)
-                    if distance < 10:
-                        print(bt.current_target)
-                        print('nu;; npne')
-                        bt.path[bt.current_target] = None
-                    else:
-                        bt.move_to_location(current_target_location)
-                        print(bt.bot_command)
-                        # ws.send(bt.bot_command)
+                initate_bot_movement(bt, selector)
         else:
             # initiate random movement here
             pass
+def initate_bot_movement(bt, selector):
+    print(bt.path)
+    if bt.path['intermediate'] is not None:
+        print('selecting Intermediate')
+        bt.current_target = 'intermediate'
+    elif bt.path['final'] is not None:
+        bt.current_target = 'final'
+        print('selecting final')
+    else :
+        bt.current_target = None
+        # reset everything if no path exist
+        selector.reset_flags()
+        bt.reset_flags()
+    if bt.current_target is not None:
+        if not bt.orient:
+            move_straight(bt)
+        else:
+            angle_differnce = bt.get_angle_differnce(bt.path[bt.current_target])
+            if abs(angle_differnce) < 5:
+                bt.orient = False
+            else:
+                bt.orient_bot(angle_differnce)
+def move_straight(bt):
+    current_target_location = bt.path[bt.current_target]
+    distance  = np.sqrt((bt.bot_center[0] - current_target_location[0])**2 + (bt.bot_center[1] - current_target_location[1])**2)
+    print(distance)
+    if distance < 10:
+        print(bt.current_target)
+        bt.path[bt.current_target] = None
+        bt.orient = True
+    else:
+        bt.move_to_location(current_target_location)
+        print(bt.bot_command)
+        # ws.send(bt.bot_command)
 
 def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_data_queue, path_queue,ws):
     try:

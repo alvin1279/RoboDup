@@ -34,6 +34,7 @@ class BotMover:
         self.bot_quadrant = None
         self.y_channel_found = False
         self.bot_near_boundary = False
+        self.orient = False
 
     def update_bot_data(self, bot_data):
         tail_centroid, head_centroid, angle = bot_data
@@ -105,9 +106,7 @@ class BotMover:
         return (location[0]+ 160, location[1])
 
     def move_to_location(self,location):
-        bot_location_angle = self.get_bot_location_angle(location)
-        adjusted_bot_angle, bot_angle = self.adjusted_bot_angle(bot_location_angle)
-        angle_differnce = adjusted_bot_angle - bot_angle
+        angle_differnce = self.get_angle_differnce(location)
         if abs(angle_differnce) > 10:
             direction = self.get_rotation_direction(angle_differnce)
             self.bot_command = direction + self.decaToHex(self.previous_rotation_scale)
@@ -122,11 +121,21 @@ class BotMover:
         if self.current_target == 'final':
             movement_command = 'F' + '0f'
         self.bot_command = movement_command
+    def orient_bot(self,angle_differnce):
+        rotation_direction = self.get_rotation_direction(angle_differnce)
+        # Scale the angle difference to a 0-10 range
+        rotation_scale = abs(angle_differnce) / 36  # Scaled proportionally
+        movement_command = rotation_direction + self.decaToHex(rotation_scale)
+        self.bot_command = movement_command
     def get_rotation_direction(self, angle_differnce):
         if angle_differnce > 0:
             return 'r'
         else: 
             return 'l'     
+    def get_angle_differnce(self, location):
+        bot_location_angle = self.get_bot_location_angle(location)
+        adjusted_bot_angle, bot_angle = self.adjusted_bot_angle(bot_location_angle)
+        return adjusted_bot_angle - bot_angle
     # shifting by 90 degrees to avoid 360 to 1 flipping
     def adjusted_bot_angle(self, bot_location_angle):
         bot_angle = self.angle
