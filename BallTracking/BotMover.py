@@ -129,15 +129,18 @@ class BotMover:
             return 'l'     
     # shifting by 90 degrees to avoid 360 to 1 flipping
     def adjusted_bot_angle(self, bot_location_angle):
-        location_quadrant = self.determine_quadrant(bot_location_angle)
         bot_angle = self.angle
-        if location_quadrant ==1  or location_quadrant ==2:
-            if bot_angle < 180:
-                bot_location_angle = (bot_location_angle + 90)  % 360
-                bot_angle = (bot_angle + 90) % 360
-            else:
-                bot_location_angle = (bot_location_angle - 90)  % 360
-                bot_angle = (bot_angle - 90) % 360
+        if (bot_location_angle > 200 and bot_angle > 200) or (bot_location_angle < 70 and bot_angle < 70):
+            bot_location_angle = self.normalize_angle(bot_location_angle + 90) % 360
+            bot_angle = self.normalize_angle(bot_angle + 90) % 360
+
+        # if location_quadrant ==1  or location_quadrant ==2 or location_quadrant == 4:
+        #     if bot_angle < 180:
+        #         bot_location_angle = (bot_location_angle + 90)  % 360
+        #         bot_angle = (bot_angle + 90) % 360
+        #     else:
+        #         bot_location_angle = (bot_location_angle - 90)  % 360
+        #         bot_angle = (bot_angle - 90) % 360
         return bot_location_angle, bot_angle
     def get_bot_location_angle(self, location):
         angle = np.arctan2(location[1] - self.bot_center[1], location[0] - self.bot_center[0])
