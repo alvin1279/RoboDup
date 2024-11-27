@@ -29,16 +29,18 @@ def check_status(ws):
 # Function to send the initial sequence of commands
 def send_initial_sequence(ws, initial_commands):
     for command in initial_commands:
+        send_time = time.time()
         send_command(ws, command)
         # Wait for the "completed" message before sending the next command
         # while True:
         #     response = ws.recv()
         #     print(f"Received from server: {response}")
+        #     print("execution time= ", time.time()-send_time)
         #     if response == "completed":
         #         print(f"Command {command} completed.")
         #         time.sleep(0.5)
         #         break
-        time.sleep(1.5)
+        time.sleep(4)
 
 # Function to send random commands from the available pool
 def send_random_commands(ws, commands):
@@ -53,18 +55,18 @@ def send_random_commands(ws, commands):
             print(f"Received from server: {response}")
             if response == "completed":
                 print(f"Command {random_command} completed, sending next random command...")
-                time.sleep(1)
+                time.sleep(0.5)
                 break
 
 
 # Main function to manage the WebSocket connection and send random commands conditionally
 def main():
     # Array of possible command sequences
-    random_commands = ['f08r01', 'b09l02', 'r02f05', 'l02b05', 'f05r02', 's05','f12r03','b12l03']  # Add more commands as needed
-    # initial_commands = ["f20r07f22", "b20l05", "b02"]  # fast sequence
-    initial_commands = ["f10s02f10r05s02f22b20l05f05"]  # slow sequence
-    # initial_commands = ["l05f10r05f10s02f20r05s02f22"]  # slow sequence
-    # initial_commands = ["f10s02"]  # slow sequence
+    random_commands = ['f08r02f05', 'b09l02f06', 'r03f05', 'l02b05', 'f05r02', 's05','f12r03','b12l03']  # Add more commands as needed
+    # initial_commands = ["f10s02f10r05s02F20","b11s02b11l05f08r06F20"]  # fast sequence
+    initial_commands = ["f10s02f10r02s02f22","b11s02b11l05f08r06f20"]  # slow sequence
+    # initial_commands = ["l05f10r05f10s02f20r05s02f22"]  # left wing
+    # initial_commands = ["f22s02","b22s02"]  # slow sequence
 
     # Connect to the WebSocket server on the bot
     bot_ip = "ws://192.168.57.196:81"  # Replace with your bot's IP address

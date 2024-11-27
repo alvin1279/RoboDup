@@ -25,7 +25,7 @@ class BotMover:
         self.current_target = None
         self.path = {'intermediate':None,'final':None}
 
-        self.previous_rotation_scale = 3
+        self.previous_rotation_scale = 1
         self.previous_distance_scale = 2
         # flags
         self.target_reached = False
@@ -49,7 +49,10 @@ class BotMover:
         self.bot_near_boundary = self.near_boundary()
     # method to check if bot is 10 near any of the boundaries
     def near_boundary(self):
-        return self.bot_center[0] <= self.x_boundaries[0] + 10 or self.bot_center[0] >= self.x_boundaries[1] - 10 or self.bot_center[1] <= self.y_boundaries[0] + 10 or self.bot_center[1] >= self.y_boundaries[1] - 10
+        return (self.bot_center[0] <= self.x_boundaries[0] + 10 or
+                self.bot_center[0] >= self.x_boundaries[1] - 10 or
+                self.bot_center[1] <= self.y_boundaries[0] + 10 or
+                self.bot_center[1] >= self.y_boundaries[1] - 10)
 
 
     def reset_flags(self):
@@ -99,7 +102,7 @@ class BotMover:
     def get_shifted_location(self,location):
         # use pre calculated line equations to shift to favourable angles later
         # 10 pixel is 2 cm
-        return (location[0]+ 60, location[1])
+        return (location[0]+ 160, location[1])
 
     def move_to_location(self,location):
         bot_location_angle = self.get_bot_location_angle(location)

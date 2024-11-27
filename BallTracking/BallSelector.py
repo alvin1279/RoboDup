@@ -94,18 +94,27 @@ class BallSelector:
             return 0, None
     def select_ball_non_edge_positive(self):
         self.selected_ball = self.balls_zone_positive_x[0]
-        # self.already_selected_flag = True
+        self.already_selected_flag = True
         self.ball_selected_flag = True
         self.region = 1
     def select_ball_non_edge_negative(self):
         self.selected_ball = self.balls_zone_negative_x[0]
-        # self.already_selected_flag = True
+        self.already_selected_flag = True
         self.ball_selected_flag = True
         self.region = -1
     # method to check if selected object is in still in the zone
     # if not reset flags
     def check_ball_still_exist(self,objects):
-        return self.selected_ball in objects.values()
+        for ball in objects.values():
+            selected_centroid = self.selected_ball.centroid
+            distance = np.sqrt((selected_centroid[0] - ball.centroid[0]) ** 2 + (
+                        selected_centroid[1] - ball.centroid[1]) ** 2)
+            print('cldoe distan')
+            print(distance)
+            if distance <10:
+                return True
+        return False
+
 
     def reset_flags(self):
         self.already_selected_flag = False

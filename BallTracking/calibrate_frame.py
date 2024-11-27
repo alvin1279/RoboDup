@@ -92,7 +92,7 @@ def draw_lines_rectangle(img, points):
 
 # Open the video file
 video_path = 'Samples/field_1.mp4'  # Change to your video file path
-cap = cv2.VideoCapture('https://192.168.78.238:8080/video')
+cap = cv2.VideoCapture('http://localhost:4747/video')
 
 # cap = cv2.VideoCapture(video_path)
 file_path='Samples/resized_rotated_frame.png'
@@ -103,7 +103,8 @@ if not cap.isOpened():
 else:
     # Read a single frame
     ret, frame = cap.read()  # ret is a boolean indicating success
-    frame = imutils.resize(frame, width=900)
+    print(frame.shape)
+    # frame = imutils.resize(frame, width=900)
 
     if ret:
         captured_frame = frame
@@ -219,7 +220,7 @@ if cnts:  # Check if contours exist
 
     # Apply the perspective warp to get the cropped and un-skewed image
     warped = cv2.warpPerspective(img, M, (width, height))
-
+    print('warped frmes siez',warped.shape)
     # Print points and zoom
     print("Rectangle Points:", rect_points)
     print("redux:", redux)

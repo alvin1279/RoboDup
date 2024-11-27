@@ -61,7 +61,7 @@ def time_interval_checker(interval):
     return False
 
 def process_frame(frame, ct, goal_location, warp_matrix, width, height):
-    frame = imutils.resize(frame, width=900)
+    # frame = imutils.resize(frame, width=900)
     frame = cv2.warpPerspective(frame, np.array(warp_matrix), (width, height)) 
     ball_mask = VideoProcessor.get_ball_mask(frame)
     bounding_rects = VideoProcessor.get_ball_bounding_rects(ball_mask)
@@ -76,12 +76,14 @@ def select_ball_and_set_path(selector, bt):
         point = bt.get_shifted_location(selector.selected_ball.centroid)
         bt.path['intermediate'] = point
         bt.path['final'] = (selector.selected_ball.centroid)
+
     elif len(selector.balls_zone_negative_x) > 0:
         print('selecting negative path')
+        selector.select_ball_non_edge_negative()
         y_channel_mid_point = bt.get_y_channel_midpoint(selector.balls_zone_negative_x)
         bt.path['intermediate'] = (bt.bot_center[0], y_channel_mid_point)
         bt.path['final'] = (selector.balls_zone_negative_x[-1].centroid[0]+60,y_channel_mid_point)
-        
+
 def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame,ws):
     global bot_detected, near_target, start, end, path
 
@@ -93,16 +95,22 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
         bt.update_bot_data(bot_data)
         if bt.bot_near_boundary:
             print("Bot near boundary. Resetting flags...")
-            selector.reset_flags()
-            bt.reset_flags()
-            ws.send('s02')
-            # do random stuff here with 10s delay added
-            return
+            # selector.reset_flags()
+            # bt.reset_flags()
+            # ws.send('s02')
+            # time.sleep(1)
+            # ws.send('Fff')
+            # time.sleep(2)
+            # ws.send('B35r03l01')
+            time.sleep(5)
+            # # do random stuff here with 10s delay added
+            # return
         selector.update_zones(bot_data[0], objects)
         tail_centroid, head_centroid, _ = bot_data
         bot_center = ((tail_centroid[0] + head_centroid[0]) // 2, (tail_centroid[1] + head_centroid[1]) // 2)
         start = bot_center
         if not selector.already_selected_flag:
+            print('selecting ball')
             select_ball_and_set_path(selector,bt)
 
         if selector.ball_selected_flag:
@@ -113,10 +121,13 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
                 return
             else:
                 # checking if path exist
+                print(bt.path)
                 if bt.path['intermediate'] is not None:
+                    print('selecting Intermediate')
                     bt.current_target = 'intermediate'
                 elif bt.path['final'] is not None:
                     bt.current_target = 'final'
+                    print('selecting final')
                 else :
                     bt.current_target = None
                     # reset everything if no path exist
@@ -127,11 +138,15 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
                 if bt.current_target is not None:
                     current_target_location = bt.path[bt.current_target]
                     distance  = np.sqrt((bt.bot_center[0] - current_target_location[0])**2 + (bt.bot_center[1] - current_target_location[1])**2)
+                    print(distance)
                     if distance < 10:
+                        print(bt.current_target)
+                        print('nu;; npne')
                         bt.path[bt.current_target] = None
                     else:
                         bt.move_to_location(current_target_location)
-                        ws.send(bt.bot_command)
+                        print(bt.bot_command)
+                        # ws.send(bt.bot_command)
         else:
             # initiate random movement here
             pass
@@ -195,17 +210,18 @@ def main():
     goal_location = ask_goal_post()
     bot_ip = "ws://192.168.57.196:81"  # Replace with your bot's IP address
 
-    # # jasira Ip: 192.168.104.196:81
-    # # hashar: 192.168.78.196:81
-    ws = websocket.WebSocket()
-    ws.connect(bot_ip)
-    # ws = 2
+    # # jasira Ip: 192.168.54.196:81
+    # # hashar: 192.168.57.196:81
+    # ws = websocket.WebSocket()
+    # ws.connect(bot_ip)
+    ws = 2
     transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height = load_frame_data()
 
     vs = VideoProcessor.load_video_stream('http://localhost:4747/video')
     # vs = VideoProcessor.load_video_stream('Samples/rec1.mp4')
     ct = CentroidTracker()
-    bt = BotMover.BotMover(shape, (shape[0] + 5, shape[0] - 5), (shape[1] + 5, shape[1] - 5), goal_location)
+    # print(shape)
+    bt = BotMover.BotMover(shape, (0, shape[0]), (0, shape[1]), goal_location)
     selector = BallSelector(goal_location, shape)
 
     frame_queue = Queue()
@@ -229,10 +245,12 @@ def main():
                 bot_process.start()
 
             ret, frame = vs.read()
+            # print('frameSize',frame.shape)
             if not ret:
                 break
 
             objects, bot_data, retFrame = process_frame(frame, ct, goal_location, warp_matrix, width, height)
+            # print('retFramSize',retFrame.shape)
             frame_queue.put(retFrame)
             bot_data_queue.put((bot_data, objects))
     except KeyboardInterrupt:
