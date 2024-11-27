@@ -61,6 +61,7 @@ class BotMover:
         self.intersection = False
         self.near_target = False
         self.y_channel_found = False
+        self.orient = False
         self.path = {'intermediate':None,'final':None}
 
     def get_y_channel_midpoint(self, all_objects):
