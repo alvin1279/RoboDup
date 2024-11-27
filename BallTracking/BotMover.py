@@ -100,10 +100,22 @@ class BotMover:
         # Return the y-coordinate of the midpoint of the largest empty y channel found
         return int(channel_mid_point)
 
-    def get_shifted_location(self,location):
-        # use pre calculated line equations to shift to favourable angles later
-        # 10 pixel is 2 cm
-        return (location[0]+ 160, location[1])
+    def get_shifted_location(self, location):
+        angle_radians = self.get_goal_angle(location)
+        
+        # Shift by 160 pixels in the direction of the angle
+        shift_x = location[0] + 160 * np.cos(angle_radians)
+        shift_y = location[1] + 160 * np.sin(angle_radians)
+        
+        # Ensure the new location stays within the bounds
+        shift_x = max(0, min(shift_x, self.shape[1] - 1))
+        shift_y = max(0, min(shift_y, self.shape[0] - 1))
+        
+        return (shift_x, shift_y)
+    def get_goal_angle(self,location):
+        goal_center = self.shape[0] // 2, self.shape[1] // 2
+        angle =np.arctan2(location[1] - goal_center[1], location[0] - goal_center[0])
+        return angle
 
     def move_to_location(self,location):
         angle_differnce = self.get_angle_differnce(location)
