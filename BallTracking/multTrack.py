@@ -70,12 +70,14 @@ def process_frame(frame, ct, goal_location, warp_matrix, width, height):
     return objects, bot_data, frame
 
 def select_ball_and_set_path(selector, bt):
+    print('negative ba;lls',len(selector.balls_zone_negative_x))
+    print('positive ba;lls',len(selector.balls_zone_positive_x))
     if len(selector.balls_zone_positive_x) > 0:
         print('selecting positive ball')
         selector.select_ball_non_edge_positive()
-        point = bt.get_shifted_location(selector.selected_ball.centroid)
-        bt.path['intermediate'] = point
-        bt.path['final'] = (selector.selected_ball.centroid)
+        shifted_point = bt.get_shifted_location(selector.selected_ball.centroid)
+        bt.path['intermediate'] = int(shifted_point[0]),int(shifted_point[1])
+        bt.path['final'] = int(selector.selected_ball.centroid[0]),int(selector.selected_ball.centroid[1])
         bt.orient = True
     elif len(selector.balls_zone_negative_x) > 0:
         print('selecting negative path')
@@ -103,7 +105,7 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
             # ws.send('Fff')
             # time.sleep(2)
             # ws.send('B35r03l01')
-            time.sleep(5)
+            # time.sleep(5)
             # # do random stuff here with 10s delay added
             # return
         selector.update_zones(bot_data[0], objects)
@@ -122,11 +124,12 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
                 return
             else:   
                 # checking if path exist
-                initate_bot_movement(bt, selector)
+                ws.send('s01')
+                initate_bot_movement(bt, selector,ws)
         else:
             # initiate random movement here
             pass
-def initate_bot_movement(bt, selector):
+def initate_bot_movement(bt, selector,ws):
     print(bt.path)
     if bt.path['intermediate'] is not None:
         print('selecting Intermediate')
@@ -141,25 +144,30 @@ def initate_bot_movement(bt, selector):
         bt.reset_flags()
     if bt.current_target is not None:
         if not bt.orient:
+            print("moving staright")
             move_straight(bt)
+            ws.send(bt.bot_command)
+            print(bt.bot_command)
         else:
             angle_differnce = bt.get_angle_differnce(bt.path[bt.current_target])
             if abs(angle_differnce) < 5:
                 bt.orient = False
             else:
+                print('orienting bot')
                 bt.orient_bot(angle_differnce)
+                ws.send(bt.bot_command)
+
 def move_straight(bt):
     current_target_location = bt.path[bt.current_target]
     distance  = np.sqrt((bt.bot_center[0] - current_target_location[0])**2 + (bt.bot_center[1] - current_target_location[1])**2)
     print(distance)
-    if distance < 10:
+    if distance < 30:
         print(bt.current_target)
         bt.path[bt.current_target] = None
         bt.orient = True
     else:
         bt.move_to_location(current_target_location)
         print(bt.bot_command)
-        # ws.send(bt.bot_command)
 
 def bot_movement_process(bt, selector, shape, goal_location, frame_queue, bot_data_queue, path_queue,ws):
     try:
@@ -202,8 +210,10 @@ def draw_tracked_frame(frame_queue, bot_data_queue,path_queue):
              # Draw the path if available
             if not path_queue.empty():
                 path = path_queue.get()
+                print('path',path)
                 for i in range(len(path) - 1):
-                    cv2.line(frame, path[i], path[i + 1], (0, 255, 255), 2)  # Green line for path
+                    if path[i +1] is not None:
+                        cv2.line(frame, path[i], path[i + 1], (0, 255, 255), 2)  # Green line for path
 
             cv2.imshow('drawn frame', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -222,9 +232,10 @@ def main():
 
     # # jasira Ip: 192.168.54.196:81
     # # hashar: 192.168.57.196:81
-    # ws = websocket.WebSocket()
-    # ws.connect(bot_ip)
-    ws = 2
+    ws = websocket.WebSocket()
+    ws.connect(bot_ip)
+    # ws = 2
+    ws.send('Bf3')
     transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height = load_frame_data()
 
     vs = VideoProcessor.load_video_stream('http://localhost:4747/video')
@@ -234,6 +245,7 @@ def main():
     bt = BotMover.BotMover(shape, (0, shape[0]), (0, shape[1]), goal_location)
     selector = BallSelector(goal_location, shape)
 
+    print('shape',shape)
     frame_queue = Queue()
     bot_data_queue = Queue()
     path_queue = Queue()  # New queue for path data
@@ -261,6 +273,7 @@ def main():
 
             objects, bot_data, retFrame = process_frame(frame, ct, goal_location, warp_matrix, width, height)
             # print('retFramSize',retFrame.shape)
+            print('frame size', retFrame.shape)
             frame_queue.put(retFrame)
             bot_data_queue.put((bot_data, objects))
     except KeyboardInterrupt:

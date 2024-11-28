@@ -4,18 +4,18 @@ import hsvMaskUtility as hlpr
 import imutils
 import random as rng
 
-img = cv2.imread('Samples/img1.jpg')
+img = cv2.imread('Samples/resized_rotated_frame.png')
 img = imutils.resize(img, width=900)
 hsvImage = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
 lower = (26, 42, 167)
 upper = (179, 255, 255)
 # uncomment code to open window to get mask boundaries
-# '''
+
 lower,upper = hlpr.getMaskBoundary(img)
 print(lower)
 print(upper)
-'''
+# '''
 
 mask = hlpr.GetMask(hsvImage, lower, upper,3)
 

@@ -1,7 +1,7 @@
 import numpy as np
 
 class BallSelector:
-    def __init__(self, goal_location, shape, buffer_width=20):
+    def __init__(self, goal_location, shape, buffer_width=10):
         self.goal_location = goal_location
         self.shape = shape  # shape as (width, height)
         self.buffer_width = buffer_width  # adjustable buffer width
@@ -109,7 +109,6 @@ class BallSelector:
             selected_centroid = self.selected_ball.centroid
             distance = np.sqrt((selected_centroid[0] - ball.centroid[0]) ** 2 + (
                         selected_centroid[1] - ball.centroid[1]) ** 2)
-            print('cldoe distan')
             print(distance)
             if distance <10:
                 return True

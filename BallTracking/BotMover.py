@@ -25,7 +25,7 @@ class BotMover:
         self.current_target = None
         self.path = {'intermediate':None,'final':None}
 
-        self.previous_rotation_scale = 1
+        self.previous_rotation_scale = 2
         self.previous_distance_scale = 2
         # flags
         self.target_reached = False
@@ -105,8 +105,8 @@ class BotMover:
         angle_radians = self.get_goal_angle(location)
         
         # Shift by 160 pixels in the direction of the angle
-        shift_x = location[0] + 160 * np.cos(angle_radians)
-        shift_y = location[1] + 160 * np.sin(angle_radians)
+        shift_x = location[0] - 100 * np.cos(angle_radians)
+        shift_y = location[1] - 100 * np.sin(angle_radians)
         
         # Ensure the new location stays within the bounds
         shift_x = max(0, min(shift_x, self.shape[1] - 1))
@@ -120,6 +120,7 @@ class BotMover:
 
     def move_to_location(self,location):
         angle_differnce = self.get_angle_differnce(location)
+        print('angle_difference',angle_differnce)
         if abs(angle_differnce) > 10:
             direction = self.get_rotation_direction(angle_differnce)
             self.bot_command = direction + self.decaToHex(self.previous_rotation_scale)
@@ -137,24 +138,27 @@ class BotMover:
     def orient_bot(self,angle_differnce):
         rotation_direction = self.get_rotation_direction(angle_differnce)
         # Scale the angle difference to a 0-10 range
-        rotation_scale = abs(angle_differnce) / 36  # Scaled proportionally
+        rotation_scale = max(1,abs(angle_differnce) / 36)  # Scaled proportionally
         movement_command = rotation_direction + self.decaToHex(rotation_scale)
+        print('movemnt command ', movement_command)
         self.bot_command = movement_command
     def get_rotation_direction(self, angle_differnce):
         if angle_differnce > 0:
             return 'r'
-        else: 
-            return 'l'     
+        # else:6
+            # return 'l'
+        return 'r'
     def get_angle_differnce(self, location):
         bot_location_angle = self.get_bot_location_angle(location)
-        adjusted_bot_angle, bot_angle = self.adjusted_bot_angle(bot_location_angle)
-        return adjusted_bot_angle - bot_angle
+        print('locatioN_angle',bot_location_angle)
+        print('angle',self.angle)
+        # adjusted_bot_angle, bot_angle = self.get_adjusted_angle(bot_location_angle)
+        return bot_location_angle - self.angle
     # shifting by 90 degrees to avoid 360 to 1 flipping
-    def adjusted_bot_angle(self, bot_location_angle):
+    def get_adjusted_angle(self, bot_location_angle):
         bot_angle = self.angle
-        if (bot_location_angle > 200 and bot_angle > 200) or (bot_location_angle < 70 and bot_angle < 70):
-            bot_location_angle = self.normalize_angle(bot_location_angle + 90) % 360
-            bot_angle = self.normalize_angle(bot_angle + 90) % 360
+        bot_angle = min(bot_angle%360,(360-bot_angle)%360)
+        bot_location_angle = min(bot_location_angle%360,(360-bot_location_angle)%360)
 
         # if location_quadrant ==1  or location_quadrant ==2 or location_quadrant == 4:
         #     if bot_angle < 180:

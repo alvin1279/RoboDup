@@ -7,8 +7,8 @@ import hsvMaskUtility as hlpr
 # jasira camera values
 # lower = (22, 36, 218)
 # upper = (50, 255, 255)
-lower = (22, 36, 218)
-upper = (50, 255, 255)
+lower = (27, 115, 78)
+upper = (55, 255, 255)
 time_interval = 1
 grey_color = (25, 25, 25)  # Grey color for the lines
 red = (0, 0, 255)  # Red color for the lines
