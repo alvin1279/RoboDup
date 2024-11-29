@@ -3,7 +3,6 @@ import path_finder as pf
 from collections import deque
 import websocket
 
-
 line_equation_matrix = []
 # all movements based on left side goal post
 class BotMover:
@@ -105,8 +104,8 @@ class BotMover:
         angle_radians = self.get_goal_angle(location)
         
         # Shift by 160 pixels in the direction of the angle
-        shift_x = location[0] - 100 * np.cos(angle_radians)
-        shift_y = location[1] - 100 * np.sin(angle_radians)
+        shift_x = location[0] + 100 * np.cos(np.pi - angle_radians)
+        shift_y = location[1] + 100 * np.sin(np.pi- angle_radians)
         
         # Ensure the new location stays within the bounds
         shift_x = max(0, min(shift_x, self.shape[1] - 1))
