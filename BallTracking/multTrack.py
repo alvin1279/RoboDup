@@ -84,7 +84,7 @@ def select_ball_and_set_path(selector, bt):
         selector.select_ball_non_edge_negative()
         y_channel_mid_point = bt.get_y_channel_midpoint(selector.balls_zone_negative_x)
         bt.path['intermediate'] = (bt.bot_center[0], y_channel_mid_point)
-        bt.path['final'] = (selector.balls_zone_negative_x[-1].centroid[0]+60,y_channel_mid_point)
+        bt.path['final'] = (selector.balls_zone_negative_x[-1].centroid[0]+50,y_channel_mid_point)
         bt.orient = True
 
 def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame,ws):
@@ -161,7 +161,7 @@ def move_straight(bt):
     current_target_location = bt.path[bt.current_target]
     distance  = np.sqrt((bt.bot_center[0] - current_target_location[0])**2 + (bt.bot_center[1] - current_target_location[1])**2)
     print(distance)
-    if distance < 30:
+    if distance < 10:
         print(bt.current_target)
         bt.path[bt.current_target] = None
         bt.orient = True

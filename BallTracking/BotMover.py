@@ -24,7 +24,7 @@ class BotMover:
         self.current_target = None
         self.path = {'intermediate':None,'final':None}
 
-        self.previous_rotation_scale = 2
+        self.previous_rotation_scale = 1
         self.previous_distance_scale = 2
         # flags
         self.target_reached = False
@@ -104,8 +104,11 @@ class BotMover:
         angle_radians = self.get_goal_angle(location)
         
         # Shift by 160 pixels in the direction of the angle
-        shift_x = location[0] + 100 * np.cos(np.pi - angle_radians)
-        shift_y = location[1] + 100 * np.sin(np.pi- angle_radians)
+        shift_x = location[0] + 80 * np.cos(angle_radians)
+        shift_y = location[1] + 80 * np.sin(angle_radians)
+
+        print("printing values:    -------------------")
+        print("actual value: ", angle_radians,  "modified value: ", (np.pi/2) - angle_radians, "\n --------")
         
         # Ensure the new location stays within the bounds
         shift_x = max(0, min(shift_x, self.shape[1] - 1))
@@ -113,7 +116,8 @@ class BotMover:
         
         return (shift_x, shift_y)
     def get_goal_angle(self,location):
-        goal_center = self.shape[0] // 2, self.shape[1] // 2
+        goal_center = 0, self.shape[0] // 2
+        print('goal center',goal_center)
         angle =np.arctan2(location[1] - goal_center[1], location[0] - goal_center[0])
         return angle
 
@@ -122,7 +126,14 @@ class BotMover:
         print('angle_difference',angle_differnce)
         if abs(angle_differnce) > 10:
             direction = self.get_rotation_direction(angle_differnce)
-            self.bot_command = direction + self.decaToHex(self.previous_rotation_scale)
+            if angle_differnce > 180:
+                angle_differnce = 360 - angle_differnce
+            elif angle_differnce < -180:
+                angle_differnce = 360 + angle_differnce
+            print('angle difference corrected', angle_differnce)
+            # Scale the angle difference to a 0-10 range
+            rotation_scale = max(2, abs(angle_differnce) / 15)
+            self.bot_command = direction + self.decaToHex(rotation_scale)
         else:
             # distance = self.get_distance(self.bot_center,location)
             self.move_forward()
@@ -132,21 +143,32 @@ class BotMover:
         # print(f"Moving forward {distance}")
         movement_command = 'f' + '03'
         if self.current_target == 'final':
-            movement_command = 'F' + '0f'
+            movement_command = 'F' + '08'
         self.bot_command = movement_command
     def orient_bot(self,angle_differnce):
         rotation_direction = self.get_rotation_direction(angle_differnce)
+        print('angle difference first',angle_differnce)
+        if angle_differnce >180:
+            angle_differnce = 360- angle_differnce
+        elif angle_differnce < -180:
+            angle_differnce = 360 + angle_differnce
+        print('angle difference corrected',angle_differnce)
         # Scale the angle difference to a 0-10 range
-        rotation_scale = max(1,abs(angle_differnce) / 36)  # Scaled proportionally
+        rotation_scale = max(2,abs(angle_differnce) / 15)  # Scaled proportionally
+        # rotation_scale = 1
         movement_command = rotation_direction + self.decaToHex(rotation_scale)
+        print(rotation_scale)
         print('movemnt command ', movement_command)
         self.bot_command = movement_command
     def get_rotation_direction(self, angle_differnce):
         if angle_differnce > 0:
+            if abs(angle_differnce) > 180:
+                return 'l'
             return 'r'
-        # else:6
-            # return 'l'
-        return 'r'
+        else:
+            if abs(angle_differnce) > 180:
+                return 'r'
+            return 'l'
     def get_angle_differnce(self, location):
         bot_location_angle = self.get_bot_location_angle(location)
         print('locatioN_angle',bot_location_angle)

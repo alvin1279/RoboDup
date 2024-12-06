@@ -1,14 +1,14 @@
 import numpy as np
 
 class BallSelector:
-    def __init__(self, goal_location, shape, buffer_width=10):
+    def __init__(self, goal_location, shape, buffer_width=30,):
         self.goal_location = goal_location
         self.shape = shape  # shape as (width, height)
         self.buffer_width = buffer_width  # adjustable buffer width
 
         # Define x and y boundaries based on shape dimensions
-        self.x_boundaries = (0, shape[0])
-        self.y_boundaries = (0, shape[1])
+        self.x_boundaries = (0, shape[1])
+        self.y_boundaries = (0, shape[0])
 
         # Zones based on x and y positions
         self.buffer_zone_x = []
@@ -23,6 +23,9 @@ class BallSelector:
         # flags
         self.already_selected_flag = False
         self.ball_selected_flag = False
+
+        #post
+        # self.transformed_left_goal_post = transformed_left_goal_post
 
     def calculate_angles(self, reference_point, centroids):
         """
@@ -57,8 +60,8 @@ class BallSelector:
 
         # Determine which objects are near each boundary
         near_left_boundary = centroids[:, 0] <= self.x_boundaries[0] + self.buffer_width
-        near_right_boundary = centroids[:, 0] >= self.x_boundaries[1] - self.buffer_width
-        near_top_boundary = centroids[:, 1] <= self.y_boundaries[0] + self.buffer_width
+        near_right_boundary = centroids[:, 0] >= self.x_boundaries[1] - (self.buffer_width +30)
+        near_top_boundary = centroids[:, 1] <= self.y_boundaries[0] + self.buffer_widtht
         near_bottom_boundary = centroids[:, 1] >= self.y_boundaries[1] - self.buffer_width
 
         # Combine all buffer conditions to get a complete buffer mask
