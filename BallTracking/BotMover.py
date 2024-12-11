@@ -141,7 +141,7 @@ class BotMover:
     # Orient bot to location and move to the location
     def move_forward(self):
         # print(f"Moving forward {distance}")
-        movement_command = 'f' + '03'
+        movement_command = 'f' + '02'
         if self.current_target == 'final':
             movement_command = 'F' + '08'
         self.bot_command = movement_command
@@ -154,7 +154,7 @@ class BotMover:
             angle_differnce = 360 + angle_differnce
         print('angle difference corrected',angle_differnce)
         # Scale the angle difference to a 0-10 range
-        rotation_scale = max(2,abs(angle_differnce) / 15)  # Scaled proportionally
+        rotation_scale = max(2,abs(angle_differnce) / 20)  # Scaled proportionally
         # rotation_scale = 1
         movement_command = rotation_direction + self.decaToHex(rotation_scale)
         print(rotation_scale)

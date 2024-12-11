@@ -14,8 +14,6 @@ def set_loop_scale(ws, loop_scale):
     command = f"set_loop_scale:{loop_scale}"  # Format for setting loop_scale
     print(f"Setting loop_scale to {loop_scale}...")
     send_command(ws, command)
-    response = ws.recv()
-    print(f"Response: {response}")
 
 # Function to check the current status
 def check_status(ws):
@@ -64,9 +62,9 @@ def main():
     # Array of possible command sequences
     random_commands = ['f08r02f05', 'b09l02f06', 'r03f05', 'l02b05', 'f05r02', 's05','f12r03','b12l03']  # Add more commands as needed
     # initial_commands = ["f10s02f10r05s02F20","b11s02b11l05f08r06F20"]  # fast sequence
-    initial_commands = ["f10s02f10r02s02f22","b11s02b11l05f08r06f20"]  # slow sequence
+    # initial_commands = ["f10s02f10r02s02f22","b11s02b11l05f08r06f20"]  # slow sequence
     # initial_commands = ["l05f10r05f10s02f20r05s02f22"]  # left wing
-    # initial_commands = ["f22s02","b22s02"]  # slow sequence
+    initial_commands = ["f01s02F01b01r01R01",]  # slow sequence
 
     # Connect to the WebSocket server on the bot
     bot_ip = "ws://192.168.57.196:81"  # Replace with your bot's IP address
@@ -76,7 +74,7 @@ def main():
     ws.connect(bot_ip)
     print("Connected to WebSocket server")
     # check_status(ws)
-    set_loop_scale(ws,10)
+    set_loop_scale(ws,4)
     time.sleep(0.5)
     # check_status(ws)
 
@@ -88,9 +86,9 @@ def main():
         send_initial_sequence(ws, initial_commands)
         time.sleep(3)
 
-        # After the initial sequence, send random commands
-        print("Switching to random command sequence...")
-        send_random_commands(ws, random_commands)
+        # # After the initial sequence, send random commands
+        # print("Switching to random command sequence...")
+        # send_random_commands(ws, random_commands)
 
     except KeyboardInterrupt:
         print("Terminating command loop...")
@@ -98,7 +96,7 @@ def main():
     finally:
         # Close the WebSocket connection when done
         ws.close()
-        set_loop_scale(ws, 5)
+        set_loop_scale(ws, 4)
         print("WebSocket connection closed")
 
 

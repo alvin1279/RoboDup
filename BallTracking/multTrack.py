@@ -94,6 +94,13 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
     
     if bot_data[0] is None or bot_data[1] is None or bot_data[2] is None:
         print("Bot not detected. Waiting for bot detection...")
+        # ws.send('b05r05f05l02')
+        loop_scale = 4
+        command = f"set_loop_scale:{loop_scale}"  # Format for setting loop_scale
+        print(f"Setting loop_scale to {loop_scale}...")
+        ws.send(command)
+        ws.send('b05f05l05r05')
+        # time.sleep(1)
     else:
         bt.update_bot_data(bot_data)
         if bt.bot_near_boundary:
@@ -146,7 +153,12 @@ def initate_bot_movement(bt, selector,ws):
         if not bt.orient:
             print("moving staright")
             move_straight(bt)
-            ws.send(bt.bot_command)
+            # added a sleep for final movement
+            if bt.bot_command.startswith('F'):
+                ws.send(bt.bot_command)
+                # time.sleep(0.05)
+            else:
+                ws.send(bt.bot_command)
             print(bt.bot_command)
         else:
             angle_differnce = bt.get_angle_differnce(bt.path[bt.current_target])
@@ -235,7 +247,8 @@ def main():
     ws = websocket.WebSocket()
     ws.connect(bot_ip)
     # ws = 2
-    ws.send('Bf3')
+    ws.send('bf3')
+    # ws.send('f10')
     transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height = load_frame_data()
 
     vs = VideoProcessor.load_video_stream('http://localhost:4747/video')
