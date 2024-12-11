@@ -61,7 +61,7 @@ class BallSelector:
         # Determine which objects are near each boundary
         near_left_boundary = centroids[:, 0] <= self.x_boundaries[0] + self.buffer_width
         near_right_boundary = centroids[:, 0] >= self.x_boundaries[1] - (self.buffer_width +30)
-        near_top_boundary = centroids[:, 1] <= self.y_boundaries[0] + self.buffer_widtht
+        near_top_boundary = centroids[:, 1] <= self.y_boundaries[0] + self.buffer_width
         near_bottom_boundary = centroids[:, 1] >= self.y_boundaries[1] - self.buffer_width
 
         # Combine all buffer conditions to get a complete buffer mask
