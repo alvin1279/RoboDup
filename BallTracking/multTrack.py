@@ -95,11 +95,7 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
     if bot_data[0] is None or bot_data[1] is None or bot_data[2] is None:
         print("Bot not detected. Waiting for bot detection...")
         # ws.send('b05r05f05l02')
-        loop_scale = 4
-        command = f"set_loop_scale:{loop_scale}"  # Format for setting loop_scale
-        print(f"Setting loop_scale to {loop_scale}...")
-        ws.send(command)
-        ws.send('b05f05l05r05')
+        ws.send('B05R02f05l05L05')
         # time.sleep(1)
     else:
         bt.update_bot_data(bot_data)
@@ -249,6 +245,20 @@ def main():
     # ws = 2
     ws.send('bf3')
     # ws.send('f10')
+    #Setting loop scale
+    # for f and b commands
+    loop_scale_high = 4
+    command = f"set_loop_scale:{loop_scale_high}"  # Format for setting loop_scale
+    print(f"Setting loop_scale_high to {loop_scale_high}...")
+    ws.send(command)
+    # for rotation commands
+    rot_scale = 3
+    command = f"rot_scale:{rot_scale}"
+    print(f"setting rotation scale to {rot_scale}")
+    ws.send(command)
+
+    # for F and B command scale =5 (hard coded in bot)
+
     transformed_left_goal_post, transformed_right_goal_post, redux, warp_matrix, shape, width, height = load_frame_data()
 
     vs = VideoProcessor.load_video_stream('http://localhost:4747/video')
