@@ -14,13 +14,14 @@ const int enablePinRight = D6;
 Servo servo;
 const int servoPin = D4;
 
-int loop_scale = 5;
+int loop_scale_high = 5;
+int loop_scale = 3;
 
-const int max_speed = 160;  //assuming 8.5V
+const int max_speed = 170;  //assuming 8.5V
 const int normal_speed = 130; // assuming 7.5V
 
 const int left_normal_speed = 150;
-const int left_max_speed = 160;
+const int left_max_speed = 170;
 
 // WebSocket server
 WebSocketsServer webSocket = WebSocketsServer(81);
@@ -45,6 +46,19 @@ void handleWebSocketMessage(uint8_t num, WStype_t type, uint8_t * payload, size_
     if (message.startsWith("set_loop_scale:")) {
         // Extract the new loop_scale value
         String valueStr = message.substring(15); // Remove "set_loop_scale:"
+        int newLoopScale = valueStr.toInt();
+        if (newLoopScale > 0) {
+            loop_scale_high = newLoopScale;
+            Serial.println("Updated loop_scale to: " + String(loop_scale));
+            // String message = "loop_scale updated to " + String(loop_scale);
+            webSocket.sendTXT(0, "updated loop_scale");
+            //webSocket.sendTXT(0, message.c_str());
+        } else {
+            webSocket.sendTXT(0, "Invalid loop_scale value.");
+        }
+    }else if(message.startsWith("rot_scale:")){
+      // Extract the new loop_scale value
+        String valueStr = message.substring(10); // Remove "set_loop_scale:"
         int newLoopScale = valueStr.toInt();
         if (newLoopScale > 0) {
             loop_scale = newLoopScale;
@@ -76,7 +90,15 @@ void handleWebSocketMessage(uint8_t num, WStype_t type, uint8_t * payload, size_
         for (int i = 0; i < message.length(); i += 3) {
             commands[commandCount] = String(message[i]); // Store the command action
             String hexaCount = message.substring(i + 1, i + 3);
-            commandLength[commandCount] = strtol(hexaCount.c_str(), nullptr, 16) * loop_scale; // Convert the 2-digit length to integer
+            if(commands[commandCount] =="f" || commands[commandCount] =="b"){
+              commandLength[commandCount] = strtol(hexaCount.c_str(), nullptr, 16) * loop_scale_high; // Convert the 2-digit length to integer
+            }
+            else if(commands[commandCount] =="B" || commands[commandCount] =="F"){
+              commandLength[commandCount] = strtol(hexaCount.c_str(), nullptr, 16) * 5; // Convert the 2-digit length to integer
+            }
+            else{
+              commandLength[commandCount] = strtol(hexaCount.c_str(), nullptr, 16) * loop_scale; // Convert the 2-digit length to integer
+            }
             Serial.println(commandLength[commandCount]);
             
             commandCount++;
@@ -91,38 +113,39 @@ void commandExecute() {
     if (commandIndex < commandCountGlobal) {
         String direction = commands[commandIndex];
         long &length = commandLength[commandIndex]; // Use reference to directly modify length
+        String stringLength =String(length);
 
         if (length > 0) {
             if (direction == "f") {
                 forward();
-                Serial.println("..................forward...............");
+                Serial.println("..................forward..............."+stringLength);
             } else if (direction == "F") {
                 fastForward();
-                Serial.println("..................fast forward..............");
+                Serial.println("..................fast forward.............."+stringLength);
             } else if (direction == "b") {
                 backward();
-                Serial.println("..................backward..............");
+                Serial.println("..................backward.............."+stringLength);
             } else if (direction == "B") {
                 fastBackward();
-                Serial.println("..................fast backward..............");
+                Serial.println("..................fast backward.............."+stringLength);
             } else if (direction == "l") {
                 left();
-                Serial.println("..................left..................");
+                Serial.println("..................left.................."+stringLength);
             } else if (direction == "L") {
                 fastLeft();
-                Serial.println("..................fast_left..................");
+                Serial.println("..................fast_left.................."+stringLength);
             } else if (direction == "R") {
                 fastRight();
-                Serial.println("..................fast_right..................");
+                Serial.println("..................fast_right.................."+stringLength);
             } else if (direction == "r") {
                 right();
-                Serial.println("..................right.................");
+                Serial.println("..................right................."+stringLength);
             } else if (direction == "s") {
                 stopMotors();
-                Serial.println("..................stop..................");
+                Serial.println("..................stop.................."+stringLength);
             }else if (direction == "S") {
                 slowStopMotor();
-                Serial.println("..................stop..................");
+                Serial.println("..................stop.................."+stringLength);
             }
             length--; // Decrement the remaining length for this command
         } else {
@@ -131,6 +154,7 @@ void commandExecute() {
     } else {
         stopMotors();
         // Send "completed" message back to the connected client
+        // Serial.println("sequence completed");
         webSocket.sendTXT(0, "completed");
     }
 }
