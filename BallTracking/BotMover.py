@@ -49,8 +49,8 @@ class BotMover:
         self.bot_near_boundary = self.near_boundary()
     # method to check if bot is 10 near any of the boundaries
     def near_boundary(self):
-        return (self.bot_center[0] <= self.x_boundaries[0] + 10 or
-                self.bot_center[0] >= self.x_boundaries[1] - 10 or
+        return (self.bot_center[0] <= self.x_boundaries[0] + 6 or
+                self.bot_center[0] >= self.x_boundaries[1] - 8 or
                 self.bot_center[1] <= self.y_boundaries[0] + 10 or
                 self.bot_center[1] >= self.y_boundaries[1] - 10)
 
@@ -141,9 +141,9 @@ class BotMover:
     # Orient bot to location and move to the location
     def move_forward(self):
         # print(f"Moving forward {distance}")
-        movement_command = 'f' + '02'
+        movement_command = 'f' + '09'
         if self.current_target == 'final':
-            movement_command = 'F' + '08'
+            movement_command = 'F' + '25'
         self.bot_command = movement_command
     def orient_bot(self,angle_differnce):
         rotation_direction = self.get_rotation_direction(angle_differnce)
@@ -154,11 +154,11 @@ class BotMover:
             angle_differnce = 360 + angle_differnce
         print('angle difference corrected',angle_differnce)
         # Scale the angle difference to a 0-10 range
-        rotation_scale = max(2,abs(angle_differnce) / 20)  # Scaled proportionally
+        rotation_scale = max(2,abs(angle_differnce) / 18)  # Scaled proportionally
         # rotation_scale = 1
         movement_command = rotation_direction + self.decaToHex(rotation_scale)
         print(rotation_scale)
-        print('movemnt command ', movement_command)
+        print('angle movemnt command ', movement_command)
         self.bot_command = movement_command
     def get_rotation_direction(self, angle_differnce):
         if angle_differnce > 0:

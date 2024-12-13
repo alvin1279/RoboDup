@@ -69,7 +69,7 @@ def process_frame(frame, ct, goal_location, warp_matrix, width, height):
     bot_data = DetectBot.getBotData(frame)
     return objects, bot_data, frame
 
-def select_ball_and_set_path(selector, bt):
+def select_ball_and_set_path(selector, bt,ws):
     print('negative ba;lls',len(selector.balls_zone_negative_x))
     print('positive ba;lls',len(selector.balls_zone_positive_x))
     if len(selector.balls_zone_positive_x) > 0:
@@ -86,6 +86,12 @@ def select_ball_and_set_path(selector, bt):
         bt.path['intermediate'] = (bt.bot_center[0], y_channel_mid_point)
         bt.path['final'] = (selector.balls_zone_negative_x[-1].centroid[0]+50,y_channel_mid_point)
         bt.orient = True
+    # else:
+    #     # code for random movement
+    #     ws.send('F10R05f05L02')
+    #     time.sleep(2)
+    #     print('no ball detected, waiting for ball')
+    
 
 def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, frame,ws):
     global bot_detected, near_target, start, end, path
@@ -94,8 +100,9 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
     
     if bot_data[0] is None or bot_data[1] is None or bot_data[2] is None:
         print("Bot not detected. Waiting for bot detection...")
+        # assuming bot is inside goal post
         # ws.send('b05r05f05l02')
-        ws.send('B05R02f05l05L05')
+        ws.send('B35R10f15l05L05')
         # time.sleep(1)
     else:
         bt.update_bot_data(bot_data)
@@ -107,8 +114,9 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
             # time.sleep(1)
             # ws.send('Fff')
             # time.sleep(2)
-            # ws.send('B35r03l01')
-            # time.sleep(5)
+            ws.send('b35R15b30r05l02')
+            print("RANDOM MOVEMENT INITIATED  ::::::::::::::::: NEAR BOUNDARY ::::::::::::::::::::::")
+            # time.sleep(0.5)
             # # do random stuff here with 10s delay added
             # return
         selector.update_zones(bot_data[0], objects)
@@ -117,7 +125,7 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
         start = bot_center
         if not selector.already_selected_flag:
             print('selecting ball')
-            select_ball_and_set_path(selector,bt)
+            select_ball_and_set_path(selector,bt,ws)
 
         if selector.ball_selected_flag:
             if not selector.check_ball_still_exist(objects):
@@ -131,6 +139,10 @@ def process_bot_movement(objects, bot_data, bt, selector, shape, goal_location, 
                 initate_bot_movement(bt, selector,ws)
         else:
             # initiate random movement here
+            # Ball not detected
+            # ws.send('b05r02s01f30s0')
+            # time.sleep(0.5)
+            print("RANDOM MOVEMENT INITIATED  ::::::::::::::::: BALL NOT DETECTED ::::::::::::::::::::::")
             pass
 def initate_bot_movement(bt, selector,ws):
     print(bt.path)
@@ -243,11 +255,11 @@ def main():
     ws = websocket.WebSocket()
     ws.connect(bot_ip)
     # ws = 2
-    ws.send('bf3')
+    # ws.send('bf3')
     # ws.send('f10')
     #Setting loop scale
     # for f and b commands
-    loop_scale_high = 4
+    loop_scale_high = 1
     command = f"set_loop_scale:{loop_scale_high}"  # Format for setting loop_scale
     print(f"Setting loop_scale_high to {loop_scale_high}...")
     ws.send(command)
